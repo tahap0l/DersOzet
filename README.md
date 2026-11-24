@@ -2,6 +2,8 @@
 
 YKS ve YDS'ye hazırlanan öğrenciler için ücretsiz, açık kaynaklı bir çalışma arkadaşı. Haftalık programın, konu özetlerin, YKS geri sayımın ve odak sayacın tek yerde. Telefonda, tablette ve bilgisayarda tarayıcıdan açılır; ana ekrana uygulama olarak eklenebilir ve internetsiz de çalışır.
 
+**Site:** https://dersozet.pages.dev · **Uygulama:** https://dersozet.pages.dev/app/
+
 Geliştiren: **Esat Taha Polat** ([@tahap0l](https://github.com/tahap0l))
 
 ## Neler var
