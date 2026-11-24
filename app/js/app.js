@@ -531,7 +531,7 @@ function loginView(){
         <label class="f-h" for="l-e">E-posta adresin</label>
         <input id="l-e" class="input" type="email" autocomplete="email" inputmode="email" placeholder="ornek@gmail.com" value="${esc(L.email)}" required>
         <p class="err" role="alert">${esc(L.err)}</p>
-        <button class="btn primary lg" type="submit"${L.busy ? ' disabled' : ''}>${L.busy ? 'Gönderiliyor…' : 'Kod gönder'}</button>
+        <button class="btn primary lg" type="submit"${L.busy ? ' disabled' : ''}>${L.busy ? 'Gönderiliyor…' : 'Giriş bağlantısı gönder'}</button>
       </form>
       <p class="hint">Şifre yok. E-postana tek kullanımlık bir giriş bağlantısı gelir.</p>
     </div>`}
