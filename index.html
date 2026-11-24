@@ -1,0 +1,250 @@
+<!doctype html>
+<!--
+  Ders Özetim — tanıtım sitesi
+  Copyright (C) 2026 Esat Taha Polat — https://github.com/tahap0l/DersOzet
+  GNU Affero General Public License v3.0
+-->
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ders Özetim | YKS çalışma uygulaması</title>
+<meta name="description" content="YKS ve YDS öğrencileri için ücretsiz, açık kaynaklı çalışma uygulaması: Excel'den haftalık program, 50'yi aşkın konu özeti, odak sayacı, günlük seri ve rozetler. Hesap ve API anahtarı gerekmez.">
+<meta name="author" content="Esat Taha Polat">
+<meta name="theme-color" content="#F4F1FB" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#15111F" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="tr_TR">
+<meta property="og:site_name" content="Ders Özetim">
+<meta property="og:title" content="Ders Özetim | YKS çalışma uygulaması">
+<meta property="og:description" content="Haftalık programın, konu özetlerin ve odak sayacın tek yerde. Ücretsiz, açık kaynak, hesap gerektirmez.">
+<meta property="og:image" content="site/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="app/icons/favicon.png">
+<link rel="apple-touch-icon" href="app/icons/apple-touch-icon.png">
+<link rel="preload" href="app/fonts/bricolage-grotesque-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="app/fonts/fonts.css">
+<link rel="stylesheet" href="site/site.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Ders Özetim","applicationCategory":"EducationalApplication","operatingSystem":"Web, iOS, Android, Windows, macOS","inLanguage":"tr","offers":{"@type":"Offer","price":"0","priceCurrency":"TRY"},"author":{"@type":"Person","name":"Esat Taha Polat","url":"https://github.com/tahap0l"},"license":"https://www.gnu.org/licenses/agpl-3.0.html","codeRepository":"https://github.com/tahap0l/DersOzet"}
+</script>
+</head>
+<body>
+<a class="skip" href="#ana">İçeriğe geç</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="logo" href="./" aria-label="Ders Özetim ana sayfa"><img src="app/icons/icon-192.png" alt="" width="32" height="32"><span>Ders Özetim</span></a>
+    <nav class="nav-links" aria-label="Sayfa bölümleri">
+      <a href="#gun">Nasıl çalışır</a>
+      <a href="#ozellikler">Özellikler</a>
+      <a href="#yapay-zeka">Yapay zekâ</a>
+      <a href="#sss">Sorular</a>
+    </nav>
+    <a class="btn primary sm" href="app/">Uygulamayı aç</a>
+  </div>
+</header>
+
+<main id="ana">
+  <section class="hero">
+    <div class="wrap hero-in">
+      <div class="hero-copy">
+        <h1>YKS'ye kalan her günü planlı geçir.</h1>
+        <p class="lede">Koçunun Excel programını yükle ya da kendi planını kur. Ders Özetim görevlerini günlere dağıtır, konularını özetler, odaklanmanı sayar ve her gün biraz daha ilerlediğini gösterir.</p>
+        <div class="cta">
+          <a class="btn primary lg" href="app/">Ücretsiz başla</a>
+          <a class="btn lg" href="https://github.com/tahap0l/DersOzet" target="_blank" rel="noopener">Kaynak kodu</a>
+        </div>
+        <ul class="facts">
+          <li>Hesap açma yok</li>
+          <li>Reklam yok</li>
+          <li>İnternetsiz çalışır</li>
+        </ul>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="tearoff">
+          <div class="to-rings"><span></span><span></span><span></span></div>
+          <p class="to-month" id="to-month">Kasım</p>
+          <p class="to-num" id="to-num">207</p>
+          <p class="to-cap">gün kaldı</p>
+        </div>
+        <figure class="phone"><img src="site/shots/bugun.webp" alt="" width="390" height="844"></figure>
+        <p class="sticky">Yağmur var. Test kitabını poşete koy; ıslanan sayfalar birbirine yapışıyor.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="day" id="gun" aria-labelledby="gun-h">
+    <div class="wrap">
+      <h2 id="gun-h">Bir YKS günü, Ders Özetim'le</h2>
+      <p class="sec-lede">Uygulama gün boyu yanında. Sabah ne yapacağını, akşam ne kadar yaptığını gösterir.</p>
+      <ol class="timeline">
+        <li class="tl">
+          <div class="tl-copy">
+            <p class="tl-time"><time>07:30</time></p>
+            <h3>Güne bak</h3>
+            <p>Bugünkü görevlerin, YKS'ye kalan gün, serin ve şehrinin havasına göre küçük bir not. Hedef bölümün ve kendine yazdığın “neden çalışıyorum” notu da burada.</p>
+          </div>
+          <figure class="shot"><img src="site/shots/bugun.webp" alt="Bugün sayfası: selam, kalan gün, seri, hedef ve bugünkü görevler" width="390" height="844" loading="lazy"></figure>
+        </li>
+        <li class="tl">
+          <div class="tl-copy">
+            <p class="tl-time"><time>16:30</time></p>
+            <h3>Haftanı kur</h3>
+            <p>Koçunun gönderdiği Excel'i yükle; görevler günlere yerleşir ve konu özetleriyle eşleşir. Excel yoksa görevlerini kendin yaz ya da derslerini ve saatini seç, uygulama sana göre bir hafta planlasın.</p>
+          </div>
+          <figure class="shot"><img src="site/shots/program.webp" alt="Program sayfası: gün seçici ve günün görevleri" width="390" height="844" loading="lazy"></figure>
+        </li>
+        <li class="tl">
+          <div class="tl-copy">
+            <p class="tl-time"><time>19:00</time></p>
+            <h3>Odaklan</h3>
+            <p>25 dakika çalış, 5 dakika mola. Süreleri kendin ayarla, günlük odak hedefini koy. Bitirdiğin her tur günlük serine sayılır.</p>
+          </div>
+          <figure class="shot"><img src="site/shots/odak.webp" alt="Odak sayacı: kalan süre ve son 7 günün odak grafiği" width="390" height="844" loading="lazy"></figure>
+        </li>
+        <li class="tl">
+          <div class="tl-copy">
+            <p class="tl-time"><time>21:45</time></p>
+            <h3>Konuyu tekrar et</h3>
+            <p>Görevin altındaki “Özeti aç” ile konu anlatımı, formüller, kavramlar, sık yapılan hatalar ve çözümlü sorular. Tek dokunuşla PDF olarak indir.</p>
+          </div>
+          <figure class="shot"><img src="site/shots/ozet.webp" alt="Konu özeti: Sıvı Basıncı" width="390" height="844" loading="lazy"></figure>
+        </li>
+        <li class="tl">
+          <div class="tl-copy">
+            <p class="tl-time"><time>23:00</time></p>
+            <h3>Günü kapat</h3>
+            <p>Günün bütün görevlerini bitirince kutlama, belli eşiklerde rozet. Yarın zinciri koparmamak için bir sebep daha.</p>
+          </div>
+          <figure class="shot"><img src="site/shots/rozet.webp" alt="Rozetler: kazanılanlar ve sıradakiler" width="390" height="844" loading="lazy"></figure>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="features" id="ozellikler" aria-labelledby="oz-h">
+    <div class="wrap">
+      <h2 id="oz-h">İçinde neler var</h2>
+      <dl class="flist">
+        <div><dt>Excel'den program</dt><dd>Koçunun haftalık programını olduğu gibi yükle. Birden fazla haftayı aynı anda seçebilirsin; tarih dosyadan okunur.</dd></div>
+        <div><dt>Elle görev ve düzenleme</dt><dd>Görev yaz, gününü, dersini ve konusunu seç. Konuyu seçmezsen uygulama bulur.</dd></div>
+        <div><dt>Sana göre hızlı plan</dt><dd>Derslerini, zorlandıklarını, günlük saatini ve günlerini seç. İnternetsiz ve anında.</dd></div>
+        <div><dt><span id="lib-count">51</span> konu özeti</dt><dd>TYT ve AYT konuları; Türkçe karakter yazmadan arayabilirsin. Eksik konunun özetini kendin çıkarabilirsin.</dd></div>
+        <div><dt>Odak ve mola sayacı</dt><dd>Kendi sürelerin, günlük odak hedefin ve son 7 günün grafiği.</dd></div>
+        <div><dt>Seri, rozet, hedef</dt><dd>Günlük seri, 14 rozet, hedef bölümün ve kendine yazdığın not. Motivasyon her sabah ekranda.</dd></div>
+        <div><dt>Senin renklerin</dt><dd>Lavanta, Okyanus, Nane, Mandalina ve Gül; her birinin açık ve koyu tonu var.</dd></div>
+        <div><dt>PDF ve yedek</dt><dd>Haftanı konu özetleriyle birlikte A4 PDF olarak indir. Verilerini tek dosyada yedekle, başka cihazda geri yükle.</dd></div>
+      </dl>
+      <figure class="duo" aria-hidden="true">
+        <img src="site/shots/bugun.webp" alt="" width="390" height="844" loading="lazy">
+        <img src="site/shots/koyu.webp" alt="" width="390" height="844" loading="lazy">
+      </figure>
+    </div>
+  </section>
+
+  <section class="ai" id="yapay-zeka" aria-labelledby="ai-h">
+    <div class="wrap">
+      <h2 id="ai-h">Yapay zekâ var, API anahtarı yok</h2>
+      <p class="sec-lede">Uygulama yapay zekâ olmadan da eksiksiz çalışır. Kişiye özel program ya da yeni bir konu özeti istersen üç ücretsiz yol var.</p>
+      <div class="ways">
+        <article class="way">
+          <h3>Tarayıcının içinde</h3>
+          <p>Model telefonunun ya da bilgisayarının kendi ekran kartında çalışır. Kurulum yok, kayıt yok. İlk seferde indirilir, sonra internetsiz de çalışır.</p>
+          <p class="way-note">Chrome, Edge ya da iOS 26 ve sonrası Safari</p>
+        </article>
+        <article class="way">
+          <h3>Ollama ile bilgisayarında</h3>
+          <p>Bilgisayarına ücretsiz Ollama kurduysan uygulama onun modellerini kullanır. Hiçbir veri bilgisayarından çıkmaz.</p>
+          <p class="way-note">Windows, macOS, Linux</p>
+        </article>
+        <article class="way">
+          <h3>Sevdiğin sohbet botu</h3>
+          <p>Uygulama hazır bir metin verir; ChatGPT, Gemini, Copilot ya da Claude'un ücretsiz sürümüne yapıştır, yanıtı geri yapıştır.</p>
+          <p class="way-note">Her cihazda</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="privacy" aria-labelledby="gz-h">
+    <div class="wrap privacy-in">
+      <h2 id="gz-h">Verilerin sende kalır</h2>
+      <ul class="plist">
+        <li>Programın, işaretlerin ve özetlerin yalnızca kendi cihazında saklanır.</li>
+        <li>Hesap, e-posta ya da telefon numarası istenmez.</li>
+        <li>Reklam ve izleme kodu yok.</li>
+        <li>Hava durumu için yalnızca seçtiğin şehrin konumu Open-Meteo'ya gönderilir.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="install" id="kur" aria-labelledby="kur-h">
+    <div class="wrap">
+      <h2 id="kur-h">Telefonuna uygulama gibi ekle</h2>
+      <p class="sec-lede">Mağazadan indirmen gerekmez. Ana ekrana ekleyince kendi simgesiyle, tam ekran açılır.</p>
+      <div class="steps3">
+        <div class="st">
+          <h3>iPhone ve iPad</h3>
+          <ol><li>Safari'de <a href="app/">uygulamayı</a> aç.</li><li>Paylaş düğmesine dokun.</li><li>“Ana Ekrana Ekle”yi seç.</li></ol>
+        </div>
+        <div class="st">
+          <h3>Android</h3>
+          <ol><li>Chrome'da <a href="app/">uygulamayı</a> aç.</li><li>Sağ üstteki menüye dokun.</li><li>“Uygulamayı yükle”yi seç.</li></ol>
+        </div>
+        <div class="st">
+          <h3>Bilgisayar</h3>
+          <ol><li>Chrome ya da Edge'de <a href="app/">uygulamayı</a> aç.</li><li>Adres çubuğundaki yükle simgesine tıkla.</li><li>“Yükle”ye bas.</li></ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="oss" aria-labelledby="oss-h">
+    <div class="wrap oss-in">
+      <div>
+        <h2 id="oss-h">Açık kaynak, herkes için</h2>
+        <p>Ders Özetim'in bütün kodu GitHub'da. Kendi bilgisayarında çalıştırabilir, geliştirebilir, eksik bir konunun özetini ekleyerek katkı verebilirsin.</p>
+        <p class="oss-small">AGPL-3.0 lisanslıdır: kodu değiştirip yayımlayan, kaynağını aynı lisansla paylaşır ve geliştiricinin adını korur.</p>
+      </div>
+      <div class="oss-cta">
+        <a class="btn light lg" href="https://github.com/tahap0l/DersOzet" target="_blank" rel="noopener">GitHub'da aç</a>
+        <a class="btn ghost-light lg" href="https://github.com/tahap0l/DersOzet/blob/main/README.md#katkı" target="_blank" rel="noopener">Nasıl katkı veririm?</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq" id="sss" aria-labelledby="sss-h">
+    <div class="wrap faq-in">
+      <h2 id="sss-h">Sık sorulanlar</h2>
+      <div class="qs">
+        <details><summary>Ücretli mi?</summary><p>Hayır. Ders Özetim tamamen ücretsiz ve reklamsızdır. Yapay zekâ özellikleri de ücretsiz yollarla çalışır.</p></details>
+        <details><summary>Koçumun Excel dosyası farklı görünüyor, çalışır mı?</summary><p>Gün adlarının (Pazartesi, Salı…) bir satırda ya da bir sütunda yazdığı çoğu haftalık programı okur. Okuyamazsa görevlerini elle ekleyebilir ya da hızlı plan oluşturabilirsin.</p></details>
+        <details><summary>Konu özetleri ne kadar güvenilir?</summary><p>Özetler konunun genel YKS kapsamına göre hazırlandı ve tekrar amaçlıdır; ders videolarının birebir özeti değildir. Önemli bilgileri ders kitabınla karşılaştır. Yapay zekâyla hazırladığın özetlerin altında bu ayrıca yazar.</p></details>
+        <details><summary>Telefonumdaki program bilgisayarımda da görünür mü?</summary><p>Veriler cihazında saklandığı için kendiliğinden eşitlenmez. Profil &gt; Yedeği indir ile dosyayı al, diğer cihazda Yedekten geri yükle.</p></details>
+        <details><summary>İnternet olmadan kullanabilir miyim?</summary><p>Evet. Bir kez açtıktan sonra program, özetler, sayaç ve PDF internetsiz çalışır. Hava durumu ve yapay zekâ indirmesi için internet gerekir.</p></details>
+        <details><summary>YDS'ye hazırlanıyorum, işime yarar mı?</summary><p>Program, odak sayacı, seri ve plan özellikleri her sınav için çalışır. YDS kelime kartları yol haritasında.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="final">
+    <div class="wrap final-in">
+      <p class="final-num"><span id="final-num">207</span> gün</p>
+      <p class="final-t">Bugün bir görevle başla.</p>
+      <a class="btn primary lg" href="app/">Uygulamayı aç</a>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <p class="foot-name"><img src="app/icons/icon-192.png" alt="" width="24" height="24">Ders Özetim</p>
+    <p>Esat Taha Polat tarafından geliştirildi. © <span id="yil">2026</span>, AGPL-3.0.</p>
+    <p class="foot-links"><a href="https://github.com/tahap0l/DersOzet" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/tahap0l" target="_blank" rel="noopener">Geliştirici</a><a href="https://open-meteo.com" target="_blank" rel="noopener">Hava: Open-Meteo</a></p>
+  </div>
+</footer>
+<script src="site/site.js"></script>
+</body>
+</html>

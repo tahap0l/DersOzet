@@ -1,0 +1,40 @@
+<!doctype html>
+<!--
+  Ders Özetim — YKS / YDS çalışma arkadaşı
+  Copyright (C) 2026 Esat Taha Polat — https://github.com/tahap0l/DersOzet
+  GNU Affero General Public License v3.0
+-->
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ders Özetim</title>
+<meta name="description" content="Haftalık programın, konu özetlerin, YKS geri sayımın ve odak sayacın tek yerde. Ücretsiz ve açık kaynak.">
+<meta name="author" content="Esat Taha Polat">
+<meta name="application-name" content="Ders Özetim">
+<meta name="theme-color" content="#F4F1FB">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ders Özetim">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preload" href="fonts/nunito-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<main id="app" aria-live="polite"><p class="hint">Yükleniyor…</p></main>
+<nav id="tabbar" class="tabbar" aria-label="Ana menü" hidden></nav>
+<input type="file" id="file-xlsx" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple hidden>
+<input type="file" id="file-json" accept=".json,application/json" hidden>
+<div class="toast-wrap"><div class="toast" id="toast" role="status" aria-live="polite"></div></div>
+<noscript><p style="padding:20px">Ders Özetim'in çalışması için JavaScript gerekir.</p></noscript>
+<script src="vendor/fflate.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/motivation.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/pdf.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
