@@ -1,0 +1,282 @@
+/* Ders Özetim — Copyright (C) 2026 Esat Taha Polat — AGPL-3.0
+ *
+ * school.js: dershane paneli. Hoca dershaneyi ve sınıfları kurar, davet kodlarını paylaşır,
+ * Excel programını ya da kendi yazdığı haftayı sınıfa veya tek öğrenciye gönderir ve
+ * öğrencilerin ilerlemesini görür. Öğrenci kodla katılır; program kendiliğinden gelir.
+ */
+'use strict';
+
+const SC = { data: {}, busy: {}, err: {} };
+const ROLE_NAME = { owner: 'Kurucu', teacher: 'Hoca', student: 'Öğrenci' };
+
+async function scLoad(inst, force){
+  if (SC.busy[inst] || (SC.data[inst] && !force)) return;
+  SC.busy[inst] = true; SC.err[inst] = '';
+  const sb = Cloud.sb, staff = Cloud.isStaff(inst);
+  try {
+    const [cls, mem, codes, progs] = await Promise.all([
+      sb.from('classes').select('id, name, created_at').eq('institution_id', inst).order('name'),
+      sb.from('memberships').select('user_id, role, class_id, joined_at, p:profiles(name, goal, track)').eq('institution_id', inst).order('joined_at'),
+      staff ? sb.from('invite_codes').select('code, class_id, role').eq('institution_id', inst) : Promise.resolve({ data: [] }),
+      staff ? sb.from('programs').select('id, class_id, student_id, week_start, title, tasks, created_at').eq('institution_id', inst).order('week_start', { ascending: false }).limit(80) : Promise.resolve({ data: [] })
+    ]);
+    [cls, mem, codes, progs].forEach(r => { if (r.error) throw r.error; });
+    let progress = [];
+    if (staff && progs.data.length){
+      const r = await sb.from('program_progress').select('program_id, user_id, done, updated_at').in('program_id', progs.data.map(p => p.id));
+      progress = r.data || [];
+    }
+    SC.data[inst] = { classes: cls.data, members: mem.data, codes: codes.data, programs: progs.data, progress, at: Date.now() };
+  } catch(e){ SC.err[inst] = 'Bilgiler alınamadı. İnternet bağlantını kontrol et.'; }
+  SC.busy[inst] = false;
+  if (route.page === 'dershane') render();
+}
+
+const codeBox = (code, label, renew) => `<div class="codebox"><div><p class="cb-l">${esc(label)}</p><p class="cb-c">${esc(code)}</p></div>
+  <div class="cb-a"><button class="btn sm" data-act="sc-copy" data-code="${esc(code)}">Kopyala</button>${renew ? `<button class="link sm" data-act="sc-renew" data-code="${esc(code)}">Yenile</button>` : ''}</div></div>`;
+
+function doneCount(prog, uid){
+  const r = (SC.cur && SC.cur.progress || []).find(x => x.program_id === prog.id && x.user_id === uid);
+  return r ? Object.keys(r.done || {}).length : 0;
+}
+
+function dershaneView(){
+  const [inst, cls] = (route.arg || '').split('/');
+  if (!Cloud.uid) return emptyBlock('Giriş gerekli', 'Dershane özelliklerini kullanmak için giriş yap.', '');
+  if (!inst) return dershaneHome();
+  const m = Cloud.member(inst);
+  if (!m) return `<header class="page-head slim"><a class="back" href="#/dershane">${I.back}Dershanem</a></header>${emptyBlock('Bu dershanede değilsin', 'Hocandan aldığın kodla katılabilirsin.', '<button class="btn primary" data-act="sc-join">Kodla katıl</button>')}`;
+  const D = SC.data[inst]; SC.cur = D;
+  if (!D){ scLoad(inst); return `<header class="page-head slim"><a class="back" href="#/dershane">${I.back}Dershanem</a></header><h1 class="page-title">${esc(m.inst.name)}</h1>${SC.err[inst] ? `<p class="err">${esc(SC.err[inst])}</p><div class="row"><button class="btn" data-act="sc-reload" data-i="${inst}">Tekrar dene</button></div>` : '<div class="progress"><span class="spinner" aria-hidden="true"></span><span>Yükleniyor…</span></div>'}`; }
+  return cls ? classView(m, D, cls) : instView(m, D);
+}
+
+function dershaneHome(){
+  const list = Cloud.school;
+  return `<header class="page-head"><h1>Dershanem</h1></header>
+  ${list.length ? `<ul class="cards">${list.map(m => `<li><a class="card-link" href="#/dershane/${m.institution_id}">
+      <span class="cl-ic">${I.school}</span><span class="cl-b"><strong>${esc(m.inst ? m.inst.name : 'Dershane')}</strong><span>${ROLE_NAME[m.role]}${m.cls ? ', ' + esc(m.cls.name) : ''}</span></span>${I.next}</a></li>`).join('')}</ul>`
+    : `<div class="empty"><h2>Dershaneye katıl</h2><p>Hocan sana 6 haneli bir sınıf kodu verdiyse yaz; haftalık programın kendiliğinden gelsin ve sınıf arkadaşlarınla aynı odalarda çalış.</p></div>`}
+  <div class="row"><button class="btn primary" data-act="sc-join">Kodla katıl</button><button class="btn" data-act="sc-new">Dershane oluştur</button></div>
+  <p class="hint">Dershane oluşturmak hocalar ve dershane yöneticileri içindir. Oluşturunca sınıfları ekler, öğrencilere sınıf kodunu, diğer hocalara hoca kodunu verirsin.</p>`;
+}
+
+function instView(m, D){
+  const staff = m.role !== 'student', inst = m.institution_id;
+  const tcode = D.codes.find(c => c.role === 'teacher');
+  const byClass = id => D.members.filter(x => x.class_id === id && x.role === 'student');
+  const teachers = D.members.filter(x => x.role !== 'student');
+  const noClass = D.members.filter(x => x.role === 'student' && !x.class_id);
+  return `<header class="page-head slim"><a class="back" href="#/dershane">${I.back}Dershanem</a><button class="icon-btn" data-act="sc-reload" data-i="${inst}" aria-label="Yenile">${I.refresh}</button></header>
+  <h1 class="page-title">${esc(m.inst.name)}</h1>
+  <p class="sub">${ROLE_NAME[m.role]}${m.cls ? ', ' + esc(m.cls.name) : ''} · ${D.members.filter(x => x.role === 'student').length} öğrenci, ${teachers.length} hoca</p>
+  ${staff && tcode ? `<section class="block">${codeBox(tcode.code, 'Hoca davet kodu: diğer hocalara ver', true)}</section>` : ''}
+  <section class="block">
+    <div class="block-head"><h2>Sınıflar</h2>${staff ? '<button class="link" data-act="sc-class-new">Sınıf ekle</button>' : ''}</div>
+    ${D.classes.length ? `<ul class="cards">${D.classes.map(c => { const code = D.codes.find(x => x.class_id === c.id); const n = byClass(c.id).length;
+      return `<li>${staff ? `<a class="card-link" href="#/dershane/${inst}/${c.id}">` : '<div class="card-link">'}<span class="cl-ic soft">${esc(c.name.slice(0, 2))}</span><span class="cl-b"><strong>${esc(c.name)}</strong><span>${n} öğrenci${staff && code ? ' · kod ' + esc(code.code) : ''}${m.class_id === c.id ? ' · senin sınıfın' : ''}</span></span>${staff ? I.next + '</a>' : '</div>'}</li>`; }).join('')}</ul>`
+      : `<p class="hint">${staff ? 'Henüz sınıf yok. Bir sınıf ekle; her sınıfın öğrencilere vereceğin ayrı bir kodu olur.' : 'Henüz sınıf eklenmemiş.'}</p>`}
+    ${staff && noClass.length ? `<p class="hint">${noClass.length} öğrencinin sınıfı yok.</p>` : ''}
+  </section>
+  <section class="block">
+    <div class="block-head"><h2>Ders odaları</h2><a class="link" href="#/odalar">Tümü</a></div>
+    <p class="hint">Dershanenin öğrencileri aynı odada sesli, görüntülü ya da sadece yazışarak birlikte çalışabilir. Odaları açan kişi ve hocalar kuralları bozanı odadan çıkarabilir.</p>
+    <div class="row"><button class="btn" data-act="room-new" data-inst="${inst}">Oda aç</button></div>
+  </section>
+  <section class="block">
+    <h2 class="f-h">Hocalar</h2>
+    <ul class="people">${teachers.map(x => `<li>${avatarFor(x.p && x.p.name)}<span><strong>${esc(x.p ? x.p.name : '')}</strong><span class="hint">${ROLE_NAME[x.role]}</span></span></li>`).join('')}</ul>
+  </section>
+  <div class="row"><button class="link danger" data-act="sc-leave" data-i="${inst}">${m.role === 'owner' ? 'Dershaneyi sil' : 'Dershaneden ayrıl'}</button></div>`;
+}
+
+function classView(m, D, cid){
+  const inst = m.institution_id, c = D.classes.find(x => x.id === cid);
+  if (!c || m.role === 'student') return `<header class="page-head slim"><a class="back" href="#/dershane/${inst}">${I.back}Geri</a></header><p class="hint">Sınıf bulunamadı.</p>`;
+  const code = D.codes.find(x => x.class_id === cid);
+  const students = D.members.filter(x => x.class_id === cid && x.role === 'student');
+  const ids = new Set(students.map(s => s.user_id));
+  const progs = D.programs.filter(p => p.class_id === cid || (p.student_id && ids.has(p.student_id)));
+  const wk = thisWeek();
+  const weekProgs = progs.filter(p => wkKey(mondayOf(fromKey(p.week_start))) === wk);
+  const stat = uid => { let t = 0, d = 0; weekProgs.forEach(p => { if (p.class_id === cid || p.student_id === uid){ t += (p.tasks || []).length; d += doneCount(p, uid); } }); return { t, d }; };
+  const name = uid => { const s = D.members.find(x => x.user_id === uid); return s && s.p ? s.p.name : 'Öğrenci'; };
+  return `<header class="page-head slim"><a class="back" href="#/dershane/${inst}">${I.back}${esc(m.inst.name)}</a><button class="icon-btn" data-act="sc-reload" data-i="${inst}" aria-label="Yenile">${I.refresh}</button></header>
+  <h1 class="page-title">${esc(c.name)}</h1>
+  ${code ? `<section class="block">${codeBox(code.code, 'Sınıf kodu: öğrencilere ver', true)}<p class="hint">Öğrenci uygulamada Profil > Dershanem > Kodla katıl'a bu kodu yazar.</p></section>` : ''}
+  <section class="block">
+    <div class="block-head"><h2>Program gönder</h2></div>
+    <div class="row"><button class="btn primary" data-act="sc-up" data-c="${cid}">Excel'den yükle</button><button class="btn" data-act="sc-mine" data-c="${cid}">Kendi programımdan</button></div>
+    <p class="hint">Program sınıftaki herkesin Program sayfasına kendiliğinden düşer. Kendi programından göndermek için önce Program sayfasında haftayı yaz.</p>
+  </section>
+  <section class="block">
+    <div class="block-head"><h2>Öğrenciler</h2><span class="hint">Bu hafta</span></div>
+    ${students.length ? `<ul class="people">${students.map(s => { const x = stat(s.user_id); const pct = x.t ? Math.round(x.d / x.t * 100) : 0;
+      return `<li>${avatarFor(s.p && s.p.name)}<span class="pp-b"><strong>${esc(s.p ? s.p.name : '')}</strong><span class="hint">${s.p && s.p.goal ? esc(s.p.goal) : ''}</span>
+        ${x.t ? `<span class="minibar" aria-label="${x.d}/${x.t} görev"><span style="width:${pct}%"></span></span><span class="hint">${x.d}/${x.t} görev</span>` : '<span class="hint">Bu hafta programı yok</span>'}</span>
+        <button class="icon-btn ghost" data-act="sc-stu" data-u="${s.user_id}" aria-label="Öğrenci seçenekleri">${I.dots}</button></li>`; }).join('')}</ul>`
+      : `<p class="hint">Henüz öğrenci yok. Sınıf kodunu paylaş.</p>`}
+  </section>
+  <section class="block">
+    <div class="block-head"><h2>Gönderilen programlar</h2></div>
+    ${progs.length ? `<ul class="plist">${progs.map(p => { const who = p.student_id ? [p.student_id] : students.map(s => s.user_id); const tot = (p.tasks || []).length * who.length; const dn = who.reduce((a, u) => a + doneCount(p, u), 0);
+      return `<li><div><strong>${esc(p.title || 'Program')}</strong><span class="hint">${weekRange(wkKey(mondayOf(fromKey(p.week_start))))} · ${(p.tasks || []).length} görev · ${p.student_id ? esc(name(p.student_id)) + ' için' : 'bütün sınıf'}</span>
+        ${tot ? `<span class="minibar"><span style="width:${Math.round(dn / tot * 100)}%"></span></span><span class="hint">Tamamlanma %${Math.round(dn / tot * 100)}</span>` : ''}</div>
+        <button class="link danger sm" data-act="sc-prog-del" data-p="${p.id}">Sil</button></li>`; }).join('')}</ul>` : '<p class="hint">Henüz program gönderilmedi.</p>'}
+  </section>
+  <div class="row"><button class="link danger" data-act="sc-class-del" data-c="${cid}">Sınıfı sil</button></div>`;
+}
+
+function avatarFor(name){ return `<span class="avatar sm" aria-hidden="true">${esc(String(name || '?').charAt(0).toLocaleUpperCase('tr'))}</span>`; }
+
+/* ---------- program gönderme ---------- */
+function toServerTasks(tasks){
+  return tasks.map(t => ({ day: t.day, text: t.text, label: t.label || sentence(t.text), subject: t.subject || '', topic: t.topic || '', type: t.type || '' }));
+}
+function sendProgramSheet(cid, items){
+  const [inst] = route.arg.split('/');
+  const D = SC.data[inst];
+  const students = D.members.filter(x => x.class_id === cid && x.role === 'student');
+  const box = openSheet(items.length > 1 ? items.length + ' program gönder' : 'Program gönder', `
+    <div id="sp-list">${items.map((x, i) => `<div class="im" data-i="${i}">
+      <p class="im-n">${esc(x.title)}</p><p class="hint">${x.tasks.length} görev</p>
+      <div class="weeknav small"><button class="icon-btn" data-step="-1" aria-label="Önceki hafta">${I.back}</button><p class="wk-r im-r">${weekRange(x.wk)}</p><button class="icon-btn" data-step="1" aria-label="Sonraki hafta">${I.next}</button></div></div>`).join('')}</div>
+    <label class="f-h" for="sp-to">Kime?</label>
+    <select id="sp-to"><option value="">Bütün sınıf (${students.length} öğrenci)</option>${students.map(s => `<option value="${s.user_id}">${esc(s.p ? s.p.name : 'Öğrenci')}</option>`).join('')}</select>
+    <p class="err" id="sp-e" role="alert"></p>
+    <div class="row"><button class="btn primary" id="sp-go">Gönder</button></div>`);
+  $('#sp-list', box).addEventListener('click', e => {
+    const b = e.target.closest('[data-step]'); if (!b) return;
+    const el = b.closest('.im'), x = items[Number(el.dataset.i)];
+    x.wk = wkKey(addDays(fromKey(x.wk), 7 * Number(b.dataset.step)));
+    el.querySelector('.im-r').textContent = weekRange(x.wk);
+  });
+  $('#sp-go', box).addEventListener('click', async () => {
+    const btn = $('#sp-go', box), to = $('#sp-to', box).value || null;
+    btn.disabled = true; btn.textContent = 'Gönderiliyor…';
+    const rows = items.map(x => ({ institution_id: inst, class_id: to ? null : cid, student_id: to, week_start: x.wk, title: x.title.slice(0, 120), tasks: toServerTasks(x.tasks), created_by: Cloud.uid }));
+    const { error } = await Cloud.sb.from('programs').insert(rows);
+    if (error){ btn.disabled = false; btn.textContent = 'Gönder'; $('#sp-e', box).textContent = 'Gönderilemedi: ' + error.message; return; }
+    closeSheet(); toast(to ? 'Program öğrenciye gönderildi' : 'Program sınıfa gönderildi'); await scLoad(inst, true);
+  });
+}
+async function scExcel(files, cid){
+  const items = [], bad = [];
+  for (const f of files){
+    try {
+      const sheets = readXlsx(await f.arrayBuffer());
+      let p = null; for (const rows of sheets){ p = parseProgram(rows); if (p) break; }
+      if (!p){ bad.push(f.name); continue; }
+      if (!p.label){ const m = f.name.match(/(\d+)[\s_.-]*hafta/i); if (m) p.label = m[1] + '. Hafta'; }
+      let tasks = p.tasks.map(t => { const g = guessTask(t.text); return { day: t.day, text: t.text, label: sentence(t.text), type: g.type, subject: g.subject, topic: '' }; });
+      tasks = libraryMatch(tasks, libIndex()).tasks;
+      items.push({ title: p.label || f.name.replace(/\.xlsx$/i, ''), wk: p.monday || thisWeek(), tasks });
+    } catch(e){ bad.push(f.name); }
+  }
+  if (!items.length){ toast('Dosyada haftalık program bulamadım. Gün adları (Pazartesi, Salı…) olan bir .xlsx seç.'); return; }
+  if (bad.length) toast('Okunamayan dosya: ' + bad.join(', '));
+  sendProgramSheet(cid, items);
+}
+
+let scUploadClass = null;
+Object.assign(ACT, {
+  'sc-join': () => {
+    const box = openSheet('Kodla katıl', `<p class="hint">Hocandan aldığın sınıf kodunu ya da hoca kodunu yaz.</p>
+      <input id="sj-c" class="input code-in" maxlength="10" placeholder="Örn. GAF7DU" autocomplete="off" autocapitalize="characters" autofocus>
+      <p class="err" id="sj-e" role="alert"></p><div class="row"><button class="btn primary" id="sj-go">Katıl</button></div>`);
+    const go2 = async () => {
+      const code = $('#sj-c', box).value.trim(); if (code.length < 6) { $('#sj-e', box).textContent = 'Kod en az 6 karakter.'; return; }
+      $('#sj-go', box).disabled = true;
+      try { const r = await Cloud.joinCode(code); closeSheet(); toast(r.role === 'student' ? 'Sınıfa katıldın. Programın gelince Program sayfanda görünecek.' : 'Dershaneye hoca olarak katıldın.'); go('#/dershane/' + r.institution_id); }
+      catch(e){ $('#sj-go', box).disabled = false; $('#sj-e', box).textContent = e.message || 'Katılamadın.'; }
+    };
+    $('#sj-go', box).addEventListener('click', go2);
+    $('#sj-c', box).addEventListener('keydown', e => { if (e.key === 'Enter') go2(); });
+  },
+  'sc-new': () => {
+    const box = openSheet('Dershane oluştur', `<label class="f-h" for="sn-n">Dershanenin adı</label>
+      <input id="sn-n" class="input" maxlength="80" placeholder="Örn. Bilgi Dershanesi Kadıköy" autocomplete="off" autofocus>
+      <label class="f-h" for="sn-c">İlk sınıf (isteğe bağlı)</label><input id="sn-c" class="input" maxlength="60" placeholder="Örn. 12-A Sayısal" autocomplete="off">
+      <p class="err" id="sn-e" role="alert"></p><div class="row"><button class="btn primary" id="sn-go">Oluştur</button></div>`);
+    $('#sn-go', box).addEventListener('click', async () => {
+      const n = $('#sn-n', box).value.trim(), c = $('#sn-c', box).value.trim();
+      if (n.length < 2){ $('#sn-e', box).textContent = 'Dershanenin adını yaz.'; return; }
+      $('#sn-go', box).disabled = true;
+      try { const id = await Cloud.rpc('create_institution', { p_name: n }); if (c) await Cloud.rpc('create_class', { p_inst: id, p_name: c }); await Cloud.loadSchool(); closeSheet(); go('#/dershane/' + id); toast('Dershane oluşturuldu'); }
+      catch(e){ $('#sn-go', box).disabled = false; $('#sn-e', box).textContent = e.message; }
+    });
+  },
+  'sc-class-new': () => {
+    const inst = route.arg.split('/')[0];
+    const box = openSheet('Sınıf ekle', `<label class="f-h" for="cn-n">Sınıfın adı</label><input id="cn-n" class="input" maxlength="60" placeholder="Örn. 12-B Eşit Ağırlık" autocomplete="off" autofocus>
+      <p class="err" id="cn-e" role="alert"></p><div class="row"><button class="btn primary" id="cn-go">Ekle</button></div>`);
+    $('#cn-go', box).addEventListener('click', async () => {
+      const n = $('#cn-n', box).value.trim(); if (!n) return;
+      try { await Cloud.rpc('create_class', { p_inst: inst, p_name: n }); closeSheet(); toast('Sınıf eklendi'); await scLoad(inst, true); }
+      catch(e){ $('#cn-e', box).textContent = e.message; }
+    });
+  },
+  'sc-class-del': async el => {
+    if (el.dataset.armed !== '1'){ el.dataset.armed = '1'; el.textContent = 'Sınıf ve programları silinecek. Tekrar bas'; return; }
+    const inst = route.arg.split('/')[0];
+    const { error } = await Cloud.sb.from('classes').delete().eq('id', el.dataset.c);
+    if (error){ toast('Silinemedi: ' + error.message); return; }
+    toast('Sınıf silindi'); go('#/dershane/' + inst); scLoad(inst, true);
+  },
+  'sc-copy': async el => {
+    const t = el.dataset.code; let ok = false;
+    try { await navigator.clipboard.writeText(t); ok = true; } catch(e){}
+    toast(ok ? 'Kod kopyalandı: ' + t : 'Kod: ' + t);
+  },
+  'sc-renew': async el => {
+    if (el.dataset.armed !== '1'){ el.dataset.armed = '1'; el.textContent = 'Eski kod çalışmayacak. Tekrar bas'; return; }
+    try { await Cloud.rpc('renew_code', { p_code: el.dataset.code }); toast('Yeni kod oluşturuldu'); scLoad(route.arg.split('/')[0], true); }
+    catch(e){ toast(e.message); }
+  },
+  'sc-reload': el => { const i = el.dataset.i; Cloud.loadSchool().then(() => scLoad(i, true)); },
+  'sc-leave': async el => {
+    const inst = el.dataset.i, m = Cloud.member(inst); if (!m) return;
+    if (el.dataset.armed !== '1'){ el.dataset.armed = '1'; el.textContent = m.role === 'owner' ? 'Bütün sınıflar, programlar ve odalar silinecek. Tekrar bas' : 'Emin misin? Tekrar bas'; return; }
+    const q = m.role === 'owner' ? Cloud.sb.from('institutions').delete().eq('id', inst) : Cloud.sb.from('memberships').delete().eq('institution_id', inst).eq('user_id', Cloud.uid);
+    const { error } = await q; if (error){ toast(error.message); return; }
+    delete SC.data[inst]; await Cloud.loadSchool(); await Cloud.pullPrograms(); go('#/dershane'); toast(m.role === 'owner' ? 'Dershane silindi' : 'Dershaneden ayrıldın');
+  },
+  'sc-up': el => { scUploadClass = el.dataset.c; $('#file-xlsx-sc').click(); },
+  'sc-mine': el => {
+    const cid = el.dataset.c;
+    const weeks = Object.keys(DB.d.weeks).sort().reverse().filter(k => DB.d.weeks[k].tasks.some(t => t.src !== 'dershane'));
+    if (!weeks.length){ toast('Programında gönderilecek bir hafta yok. Önce Program sayfasında görevleri yaz.'); return; }
+    const box = openSheet('Kendi programımdan', `<p class="hint">Hangi haftayı göndermek istiyorsun?</p><ul class="menu">${weeks.map(k => { const w = DB.d.weeks[k]; return `<li><button data-wk="${k}"><span>${esc(w.label || 'Program')}</span><span class="mv">${weekRange(k)}, ${w.tasks.filter(t => t.src !== 'dershane').length} görev</span></button></li>`; }).join('')}</ul>`);
+    box.addEventListener('click', e => {
+      const b = e.target.closest('[data-wk]'); if (!b) return;
+      const w = DB.d.weeks[b.dataset.wk];
+      sendProgramSheet(cid, [{ title: w.label || 'Haftalık program', wk: b.dataset.wk, tasks: w.tasks.filter(t => t.src !== 'dershane') }]);
+    });
+  },
+  'sc-prog-del': async el => {
+    if (el.dataset.armed !== '1'){ el.dataset.armed = '1'; el.textContent = 'Tekrar bas'; return; }
+    const { error } = await Cloud.sb.from('programs').delete().eq('id', el.dataset.p);
+    if (error){ toast(error.message); return; }
+    toast('Program silindi'); scLoad(route.arg.split('/')[0], true);
+  },
+  'sc-stu': el => {
+    const [inst, cid] = route.arg.split('/'), D = SC.data[inst], s = D.members.find(x => x.user_id === el.dataset.u); if (!s) return;
+    const box = openSheet(s.p ? s.p.name : 'Öğrenci', `<label class="f-h" for="ss-c">Sınıfı</label>
+      <select id="ss-c">${D.classes.map(c => `<option value="${c.id}"${c.id === cid ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
+      <div class="row"><button class="btn primary" id="ss-go">Kaydet</button><button class="btn danger" id="ss-x">Dershaneden çıkar</button></div>`);
+    $('#ss-go', box).addEventListener('click', async () => {
+      const { error } = await Cloud.sb.from('memberships').update({ class_id: $('#ss-c', box).value }).eq('institution_id', inst).eq('user_id', s.user_id);
+      if (error){ toast(error.message); return; } closeSheet(); toast('Sınıfı değişti'); scLoad(inst, true);
+    });
+    const x = $('#ss-x', box);
+    x.addEventListener('click', async () => {
+      if (x.dataset.armed !== '1'){ x.dataset.armed = '1'; x.textContent = 'Tekrar bas'; return; }
+      const { error } = await Cloud.sb.from('memberships').delete().eq('institution_id', inst).eq('user_id', s.user_id);
+      if (error){ toast(error.message); return; } closeSheet(); toast('Öğrenci çıkarıldı'); scLoad(inst, true);
+    });
+  }
+});
+document.addEventListener('change', e => {
+  if (e.target.id === 'file-xlsx-sc'){ const fs = Array.from(e.target.files || []); e.target.value = ''; if (fs.length && scUploadClass) scExcel(fs, scUploadClass); }
+});
+VIEWS.dershane = dershaneView;

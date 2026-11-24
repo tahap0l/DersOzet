@@ -2,13 +2,13 @@
   "id": "./",
   "name": "Ders Özetim",
   "short_name": "Ders Özetim",
-  "description": "YKS ve YDS öğrencileri için haftalık program, konu özetleri, geri sayım ve odak sayacı. Esat Taha Polat tarafından geliştirildi.",
+  "description": "YKS ve YDS öğrencileri ve dershaneler için haftalık program, konu özetleri, ortak çalışma odaları ve odak sayacı. Esat Taha Polat tarafından geliştirildi.",
   "lang": "tr",
   "dir": "ltr",
   "start_url": "./#/bugun",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#F4F1FB",
   "theme_color": "#6A4BD6",
   "categories": ["education", "productivity"],
@@ -20,6 +20,7 @@
   ],
   "shortcuts": [
     { "name": "Odaklan", "url": "./#/odak", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Program", "url": "./#/program", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+    { "name": "Program", "url": "./#/program", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Odalar", "url": "./#/odalar", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

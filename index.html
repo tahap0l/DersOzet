@@ -9,7 +9,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ders Özetim | YKS çalışma uygulaması</title>
-<meta name="description" content="YKS ve YDS öğrencileri için ücretsiz, açık kaynaklı çalışma uygulaması: Excel'den haftalık program, 50'yi aşkın konu özeti, odak sayacı, günlük seri ve rozetler. Hesap ve API anahtarı gerekmez.">
+<meta name="description" content="YKS ve YDS öğrencileri için ücretsiz, açık kaynaklı çalışma uygulaması: Excel'den haftalık program, 50'yi aşkın konu özeti, odak sayacı, günlük seri ve rozetler. API anahtarı gerekmez.">
 <meta name="author" content="Esat Taha Polat">
 <meta name="theme-color" content="#F4F1FB" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#15111F" media="(prefers-color-scheme: dark)">
@@ -17,7 +17,7 @@
 <meta property="og:locale" content="tr_TR">
 <meta property="og:site_name" content="Ders Özetim">
 <meta property="og:title" content="Ders Özetim | YKS çalışma uygulaması">
-<meta property="og:description" content="Haftalık programın, konu özetlerin ve odak sayacın tek yerde. Ücretsiz, açık kaynak, hesap gerektirmez.">
+<meta property="og:description" content="Haftalık programın, konu özetlerin, ders odaları ve odak sayacın tek yerde. Dershaneler için ücretsiz ve açık kaynak.">
 <meta property="og:image" content="site/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -51,15 +51,15 @@
     <div class="wrap hero-in">
       <div class="hero-copy">
         <h1>YKS'ye kalan her günü planlı geçir.</h1>
-        <p class="lede">Koçunun Excel programını yükle ya da kendi planını kur. Ders Özetim görevlerini günlere dağıtır, konularını özetler, odaklanmanı sayar ve her gün biraz daha ilerlediğini gösterir.</p>
+        <p class="lede">Hocanın gönderdiği program kendiliğinden gelsin, konularını Mürek hatırlatsın, arkadaşlarınla aynı odada ortak sayaçla çalış. Ders Özetim her gün biraz daha ilerlediğini gösterir.</p>
         <div class="cta">
           <a class="btn primary lg" href="app/">Ücretsiz başla</a>
           <a class="btn lg" href="https://github.com/tahap0l/DersOzet" target="_blank" rel="noopener">Kaynak kodu</a>
         </div>
         <ul class="facts">
-          <li>Hesap açma yok</li>
-          <li>Reklam yok</li>
-          <li>İnternetsiz çalışır</li>
+          <li>Ücretsiz, reklamsız</li>
+          <li>Dershaneler için</li>
+          <li>Telefon ve tablet</li>
         </ul>
       </div>
       <div class="hero-art" aria-hidden="true">
@@ -132,15 +132,40 @@
         <div><dt>Elle görev ve düzenleme</dt><dd>Görev yaz, gününü, dersini ve konusunu seç. Konuyu seçmezsen uygulama bulur.</dd></div>
         <div><dt>Sana göre hızlı plan</dt><dd>Derslerini, zorlandıklarını, günlük saatini ve günlerini seç. İnternetsiz ve anında.</dd></div>
         <div><dt><span id="lib-count">51</span> konu özeti</dt><dd>TYT ve AYT konuları; Türkçe karakter yazmadan arayabilirsin. Eksik konunun özetini kendin çıkarabilirsin.</dd></div>
-        <div><dt>Odak ve mola sayacı</dt><dd>Kendi sürelerin, günlük odak hedefin ve son 7 günün grafiği.</dd></div>
+        <div><dt>Odak sayacı ve kronometre</dt><dd>Kendi sürelerin, günlük odak hedefin, ölçtüğün çalışma süresi ve son 7 günün grafiği.</dd></div>
         <div><dt>Seri, rozet, hedef</dt><dd>Günlük seri, 14 rozet, hedef bölümün ve kendine yazdığın not. Motivasyon her sabah ekranda.</dd></div>
         <div><dt>Senin renklerin</dt><dd>Lavanta, Okyanus, Nane, Mandalina ve Gül; her birinin açık ve koyu tonu var.</dd></div>
-        <div><dt>PDF ve yedek</dt><dd>Haftanı konu özetleriyle birlikte A4 PDF olarak indir. Verilerini tek dosyada yedekle, başka cihazda geri yükle.</dd></div>
+        <div><dt>Her cihazda aynı hesap</dt><dd>Google ya da e-posta koduyla gir; telefonda işaretlediğin görev tablette de işaretli. İnternet yokken çalışır, bağlanınca eşitlenir.</dd></div>
+        <div><dt>PDF</dt><dd>Haftanı konu özetleriyle birlikte A4 PDF olarak indir, yazdır.</dd></div>
       </dl>
       <figure class="duo" aria-hidden="true">
         <img src="site/shots/bugun.webp" alt="" width="390" height="844" loading="lazy">
         <img src="site/shots/koyu.webp" alt="" width="390" height="844" loading="lazy">
       </figure>
+    </div>
+  </section>
+
+  <section class="ai" id="dershane" aria-labelledby="ds-h">
+    <div class="wrap">
+      <h2 id="ds-h">Dershanede, evde, arkadaşlarınla</h2>
+      <p class="sec-lede">Hoca programı bir kez yükler, sınıftaki herkesin telefonuna düşer. Öğrenciler aynı odada birlikte çalışır.</p>
+      <div class="ways">
+        <article class="way">
+          <h3>Dershane paneli</h3>
+          <p>Hoca dershaneyi ve sınıfları kurar, öğrencilere 6 haneli sınıf kodunu verir. Excel programını ya da kendi yazdığı haftayı sınıfa veya tek öğrenciye gönderir, kimin ne kadar bitirdiğini görür.</p>
+          <p class="way-note">Hocalar ve dershane yöneticileri için</p>
+        </article>
+        <article class="way">
+          <h3>Ders odaları</h3>
+          <p>Sınıf arkadaşlarınla ya da kodu verdiğin arkadaşlarınla aynı odada çalış: ortak odak sayacı, sohbet, istersen ses ve görüntü. Kamera ve mikrofon sen açana kadar kapalı.</p>
+          <p class="way-note">Şikâyet et, sessize al, odadan çıkar</p>
+        </article>
+        <article class="way">
+          <h3>Mürek</h3>
+          <p>Mor mürekkep damlası maskotun. Her gün o günün konularını hatırlatır, konu özetlerinden soru sorar; yapay zekâ açıksa sorularını cevaplar.</p>
+          <p class="way-note">Yapay zekâ olmadan da çalışır</p>
+        </article>
+      </div>
     </div>
   </section>
 
@@ -170,12 +195,12 @@
 
   <section class="privacy" aria-labelledby="gz-h">
     <div class="wrap privacy-in">
-      <h2 id="gz-h">Verilerin sende kalır</h2>
+      <h2 id="gz-h">Verilerin korunur</h2>
       <ul class="plist">
-        <li>Programın, işaretlerin ve özetlerin yalnızca kendi cihazında saklanır.</li>
-        <li>Hesap, e-posta ya da telefon numarası istenmez.</li>
-        <li>Reklam ve izleme kodu yok.</li>
-        <li>Hava durumu için yalnızca seçtiğin şehrin konumu Open-Meteo'ya gönderilir.</li>
+        <li>Programın ve özetlerin yalnızca senin hesabında durur; başka kimse göremez.</li>
+        <li>Hocan yalnızca adını, hedefini ve kendi gönderdiği programdaki ilerlemeni görür.</li>
+        <li>Ses ve görüntü kaydedilmez; odadakiler arasında doğrudan gider.</li>
+        <li>Reklam ve izleme kodu yok. Hesabını istediğin an tamamen silebilirsin.</li>
       </ul>
     </div>
   </section>
@@ -222,8 +247,10 @@
         <details><summary>Ücretli mi?</summary><p>Hayır. Ders Özetim tamamen ücretsiz ve reklamsızdır. Yapay zekâ özellikleri de ücretsiz yollarla çalışır.</p></details>
         <details><summary>Koçumun Excel dosyası farklı görünüyor, çalışır mı?</summary><p>Gün adlarının (Pazartesi, Salı…) bir satırda ya da bir sütunda yazdığı çoğu haftalık programı okur. Okuyamazsa görevlerini elle ekleyebilir ya da hızlı plan oluşturabilirsin.</p></details>
         <details><summary>Konu özetleri ne kadar güvenilir?</summary><p>Özetler konunun genel YKS kapsamına göre hazırlandı ve tekrar amaçlıdır; ders videolarının birebir özeti değildir. Önemli bilgileri ders kitabınla karşılaştır. Yapay zekâyla hazırladığın özetlerin altında bu ayrıca yazar.</p></details>
-        <details><summary>Telefonumdaki program bilgisayarımda da görünür mü?</summary><p>Veriler cihazında saklandığı için kendiliğinden eşitlenmez. Profil &gt; Yedeği indir ile dosyayı al, diğer cihazda Yedekten geri yükle.</p></details>
-        <details><summary>İnternet olmadan kullanabilir miyim?</summary><p>Evet. Bir kez açtıktan sonra program, özetler, sayaç ve PDF internetsiz çalışır. Hava durumu ve yapay zekâ indirmesi için internet gerekir.</p></details>
+        <details><summary>Telefonumdaki program tabletimde de görünür mü?</summary><p>Evet. Aynı hesapla girdiğin her cihazda programın, işaretlerin ve özetlerin aynıdır.</p></details>
+        <details><summary>Dershanem nasıl kullanır?</summary><p>Bir hoca uygulamada Profil &gt; Dershane paneli'nden dershaneyi ve sınıfları oluşturur. Her sınıfın bir kodu olur; öğrenciler bu kodla katılır. Hoca Excel programını yükleyince sınıftaki herkesin Program sayfasına düşer.</p></details>
+        <details><summary>Ders odaları güvenli mi?</summary><p>Dershane odalarına yalnızca o dershanenin öğrencileri, özel odalara yalnızca kodu bilenler girer. Kamera ve mikrofon kapalı başlar. Rahatsız eden kişiyi şikâyet edebilir, sessize alabilirsin; odayı açan kişi ve hocalar kişiyi odadan çıkarabilir.</p></details>
+        <details><summary>İnternet olmadan kullanabilir miyim?</summary><p>Evet. Bir kez giriş yaptıktan sonra program, özetler, sayaç ve PDF internetsiz çalışır; bağlanınca eşitlenir. Odalar, hava durumu ve yapay zekâ indirmesi için internet gerekir.</p></details>
         <details><summary>YDS'ye hazırlanıyorum, işime yarar mı?</summary><p>Program, odak sayacı, seri ve plan özellikleri her sınav için çalışır. YDS kelime kartları yol haritasında.</p></details>
       </div>
     </div>

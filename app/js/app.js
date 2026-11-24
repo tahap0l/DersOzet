@@ -25,13 +25,26 @@ const I = {
   next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>',
   target: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>',
   medal: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="14.5" r="5.5"/><path d="M8.5 10 6 3.5h4l2 4M15.5 10 18 3.5h-4l-2 4"/><path d="m12 12.3.8 1.6 1.7.3-1.2 1.2.3 1.7-1.6-.8-1.6.8.3-1.7-1.2-1.2 1.7-.3Z"/></svg>',
+  school: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9.5 12 5l9 4.5-9 4.5Z"/><path d="M7 11.5v4.5c1.5 1.3 3.2 2 5 2s3.5-.7 5-2v-4.5M21 9.5v5"/></svg>',
+  rooms: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8.5" cy="9" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M3 19c.8-3 3-4.5 5.5-4.5S13.2 16 14 19M14.5 14.6c.6-.2 1.3-.3 2-.3 2.2 0 4 1.3 4.5 4.2"/></svg>',
+  refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4"/></svg>',
+  mic: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>',
+  micOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 9.5V6a3 3 0 0 0-5.8-1M9 9v2a3 3 0 0 0 4.6 2.5M5.5 11a6.5 6.5 0 0 0 10.4 5.2M18.4 12.5c.1-.5.1-1 .1-1.5M12 17.5V21M4 4l16 16"/></svg>',
+  cam: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6.5" width="12.5" height="11" rx="2.5"/><path d="m15.5 10.5 5-3v9l-5-3"/></svg>',
+  camOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 13.5v1.5a2.5 2.5 0 0 1-2.5 2.5H5.5A2.5 2.5 0 0 1 3 15V9a2.5 2.5 0 0 1 2.5-2.5M9 6.5h4a2.5 2.5 0 0 1 2.5 2.5v1.5l5-3v9M3 3l18 18"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v10H9l-5 4Z"/></svg>',
+  send: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12 20 4l-6 16-3-7Z"/></svg>',
+  leave: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14M10 8l-4 4 4 4M6 12h10"/></svg>',
+  watch: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5l3-3M10 2.5h4"/></svg>',
   spark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8L12 17.5l-1.8-5.2L5 10.5l5.2-1.8Z"/><path d="M18.5 16l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7Z"/></svg>'
 };
 const TABS = [
   { id: 'bugun', label: 'Bugün', icon: I.sun },
   { id: 'program', label: 'Program', icon: I.cal },
-  { id: 'kitaplik', label: 'Kitaplık', icon: I.book },
+  { id: 'odalar', label: 'Odalar', icon: I.rooms },
   { id: 'odak', label: 'Odak', icon: I.timer },
+  { id: 'kitaplik', label: 'Kitaplık', icon: I.book },
+  { id: 'dershane', label: 'Dershane', icon: I.school, rail: true },
   { id: 'profil', label: 'Profil', icon: I.user }
 ];
 
@@ -39,6 +52,7 @@ const TABS = [
 let route = { page: 'bugun', arg: '' };
 const ui = { week: thisWeek(), day: null, libQ: '', libS: '', plan: null, planDraft: null, busy: false, busyText: '' };
 function parseRoute(){
+  if (/access_token=|error_description=|[#&]error=/.test(location.hash)){ route = { page: 'bugun', arg: '' }; return; }
   const h = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
   const i = h.indexOf('/');
   route = i < 0 ? { page: h || 'bugun', arg: '' } : { page: h.slice(0, i), arg: h.slice(i + 1) };
@@ -90,7 +104,7 @@ function taskRow(wk, t){
     : `<a class="tlink soft" href="#/asistan/ozet/${encodeURIComponent((t.subject || '') + '|' + t.topic)}">Özet çıkar</a>`;
   return `<li class="task${t.done ? ' done' : ''}" style="--c:${subjColor(t.subject)}">
     <label class="check"><input type="checkbox" data-done="${wk}|${esc(t.id)}"${t.done ? ' checked' : ''} aria-label="${esc(t.label || t.text)} tamamlandı"><span class="box" aria-hidden="true"></span></label>
-    <div class="task-b"><p class="task-t">${esc(t.label || sentence(t.text))}</p>${t.subject || link ? `<div class="task-m">${chip(t.subject)}${link}</div>` : ''}</div>
+    <div class="task-b"><p class="task-t">${esc(t.label || sentence(t.text))}</p>${t.subject || link || t.src === 'dershane' ? `<div class="task-m">${chip(t.subject)}${t.src === 'dershane' ? `<span class="from-sc" title="${esc(t.school || 'Dershane')}">${I.school}Dershane</span>` : ''}${link}</div>` : ''}</div>
     <button class="icon-btn ghost" data-act="edit" data-k="${wk}|${esc(t.id)}" aria-label="Görevi düzenle">${I.dots}</button>
   </li>`;
 }
@@ -140,6 +154,7 @@ function todayView(){
     </div>
     <p class="motto">${mottoFor({ allDone, streak: st.cur, left })}</p>
   </section>
+  ${mascotCard()}
   ${p.why ? `<aside class="why"><p class="why-h">Neden çalışıyorum?</p><p class="why-t">${esc(p.why)}</p></aside>` : ''}
   ${weatherNote()}
   <section class="block">
@@ -299,20 +314,42 @@ function pmPaint(){
   const badge = $('#tab-odak-b'); if (badge){ badge.textContent = t.running ? pmFmt(left) : ''; badge.hidden = !t.running; }
   document.title = t.running ? pmFmt(left) + ' · ' + MODE_NAME[t.mode] : APP.name;
 }
+/* ---------- kronometre ---------- */
+const SW = () => DB.d.sw;
+const swMs = () => SW().acc + (SW().running ? Date.now() - SW().startAt : 0);
+const swFmt = ms => { const s = Math.floor(ms / 1000), h = Math.floor(s / 3600); return (h ? h + ':' : '') + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60); };
+let swTimer = null;
+function swLoop(){ clearInterval(swTimer); swTimer = SW().running ? setInterval(swPaint, 500) : null; swPaint(); }
+function swPaint(){
+  const el = $('#sw-time'); if (el) el.textContent = swFmt(swMs());
+  const b = $('#sw-go'); if (b) b.textContent = SW().running ? 'Duraklat' : (SW().acc ? 'Devam et' : 'Başlat');
+  const badge = $('#tab-odak-b'); if (badge && !T().running){ badge.textContent = SW().running ? swFmt(swMs()) : ''; badge.hidden = !SW().running; }
+}
+function swSave(){
+  const min = Math.floor(swMs() / 60000);
+  const w = SW(); w.running = false; w.acc = 0; w.startAt = 0;
+  if (min >= 1){ bump(dayKey(), 'focus', min); toast(min + ' dakika çalışma kaydedildi.'); } else toast('1 dakikadan kısa olduğu için kaydedilmedi.');
+  DB.save(); swLoop(); render();
+}
 function focusView(){
   const t = T();
   if (t.roundsDay !== dayKey()){ t.roundsDay = dayKey(); t.rounds = 0; }
   const days = [];
   for (let i = 6; i >= 0; i--){ const d = addDays(new Date(), -i); days.push({ d, m: (DB.d.stats.days[dayKey(d)] || {}).focus || 0 }); }
   const mx = Math.max(60, ...days.map(x => x.m)), total = days.reduce((a, x) => a + x.m, 0);
+  const swMode = ui.fmode === 'sw';
   return `
-  <header class="page-head"><h1>Odak</h1><button class="icon-btn" data-act="focus-set" aria-label="Süreleri ayarla">${I.gear}</button></header>
-  <div class="seg" role="tablist" aria-label="Sayaç türü">${['focus', 'brk', 'long'].map(m => `<button class="seg-b${t.mode === m ? ' on' : ''}" data-act="pm-mode" data-m="${m}" role="tab" aria-selected="${t.mode === m}"${t.running ? ' disabled' : ''}>${MODE_NAME[m]}</button>`).join('')}</div>
+  <header class="page-head"><h1>Odak</h1>${swMode ? '' : `<button class="icon-btn" data-act="focus-set" aria-label="Süreleri ayarla">${I.gear}</button>`}</header>
+  <div class="seg" role="tablist" aria-label="Sayaç ya da kronometre"><button class="seg-b${!swMode ? ' on' : ''}" data-act="f-mode" data-m="pm" role="tab" aria-selected="${!swMode}">${I.timer}Odak sayacı</button><button class="seg-b${swMode ? ' on' : ''}" data-act="f-mode" data-m="sw" role="tab" aria-selected="${swMode}">${I.watch}Kronometre</button></div>
+  ${swMode ? `<div class="sw-wrap"><p class="sw-time" id="sw-time" role="timer">${swFmt(swMs())}</p><p class="pm-mode">Ne kadar çalıştığını ölç; bitince kaydet, günlük odağına eklensin.</p></div>
+  <div class="pm-ctl"><button class="btn primary lg" data-act="sw-go" id="sw-go">Başlat</button>${SW().acc || SW().running ? '<button class="btn lg" data-act="sw-save">Bitir ve kaydet</button><button class="btn lg ghost" data-act="sw-reset">Sıfırla</button>' : ''}</div>`
+  : `<div class="seg small" role="tablist" aria-label="Sayaç türü">${['focus', 'brk', 'long'].map(m => `<button class="seg-b${t.mode === m ? ' on' : ''}" data-act="pm-mode" data-m="${m}" role="tab" aria-selected="${t.mode === m}"${t.running ? ' disabled' : ''}>${MODE_NAME[m]}</button>`).join('')}</div>
   <div class="ring-wrap mode-${t.mode}">
     <svg class="ring" viewBox="0 0 240 240" aria-hidden="true"><circle class="ring-bg" cx="120" cy="120" r="104"/><circle class="ring-fg" id="pm-ring" cx="120" cy="120" r="104"/></svg>
     <div class="ring-c"><p class="pm-time" id="pm-time" role="timer" aria-live="off">${pmFmt(pmLeft())}</p><p class="pm-mode">${MODE_NAME[t.mode]}, ${modeMins(t.mode)} dk</p></div>
   </div>
-  <div class="pm-ctl"><button class="btn primary lg" data-act="pm-go" id="pm-go">Başlat</button><button class="btn lg" data-act="pm-reset">Sıfırla</button></div>
+  <div class="pm-ctl"><button class="btn primary lg" data-act="pm-go" id="pm-go">Başlat</button><button class="btn lg" data-act="pm-reset">Sıfırla</button></div>`}
+  ${Cloud.enabled ? `<a class="focus-cta" href="#/odalar"><span class="fc-ic">${I.rooms}</span><span><strong>Arkadaşlarınla çalış</strong><span>Ortak sayaçlı bir odaya gir; kamera isteğe bağlı.</span></span><span class="fc-go">${I.next}</span></a>` : ''}
   <p class="hint center">Bugün ${t.rounds} odak turu, ${(DB.d.stats.days[dayKey()] || {}).focus || 0}/${DB.d.profile.dailyFocus || 120} dakika. En az 10 dakikalık odak günlük serine sayılır.</p>
   ${DB.d.profile.why ? `<aside class="why small"><p class="why-t">${esc(DB.d.profile.why)}</p></aside>` : ''}
   <section class="block">
@@ -341,15 +378,27 @@ function profileView(){
     <li><button data-act="p-sound"><span>Sayaç sesi</span><span class="mv">${p.sound === false ? 'Kapalı' : 'Açık'}</span></button></li>
     <li><a href="#/asistan/ayar"><span>Yapay zekâ</span><span class="mv">${esc(AI.label())}</span></a></li>
   </ul>
+  ${Cloud.uid ? `<h2 class="menu-h">Dershane</h2>
+  <ul class="menu">
+    ${Cloud.school.map(m => `<li><a href="#/dershane/${m.institution_id}"><span>${esc(m.inst ? m.inst.name : 'Dershane')}</span><span class="mv">${ROLE_NAME[m.role]}${m.cls ? ', ' + esc(m.cls.name) : ''}</span></a></li>`).join('')}
+    <li><button data-act="sc-join"><span>Kodla dershaneye katıl</span></button></li>
+    <li><a href="#/dershane"><span>Dershane paneli</span><span class="mv">${Cloud.anyStaff() ? 'Sınıflar ve programlar' : 'Hocalar için'}</span></a></li>
+  </ul>` : ''}
   <h2 class="menu-h">Rozetlerin <span class="hint">${Object.keys(got).length}/${BADGES.length}</span></h2>
   <ul class="badges">${BADGES.map(b => { const d = got[b.id]; return `<li class="badge${d ? ' on' : ''}"><span class="bd-ic" aria-hidden="true">${I.medal}</span><span class="bd-n">${esc(b.name)}</span><span class="bd-h">${d ? fmtDay(fromKey(d)) : esc(b.how)}</span></li>`; }).join('')}</ul>
   <h2 class="menu-h">Verilerin</h2>
   <ul class="menu">
     <li><button data-act="backup"><span>Yedeği indir</span><span class="mv">JSON dosyası</span></button></li>
     <li><button data-act="restore"><span>Yedekten geri yükle</span></button></li>
-    <li><button data-act="reset" class="danger"><span>Tüm verileri sil</span></button></li>
+    ${Cloud.uid ? '' : '<li><button data-act="reset" class="danger"><span>Tüm verileri sil</span></button></li>'}
   </ul>
-  <p class="hint">${ENV === 'artifact' ? (Sync.col ? 'Verilerin Claude hesabında, yalnızca sana görünür şekilde saklanıyor; telefonda ve tablette aynı programı görürsün.' : 'Verilerin bu cihazın tarayıcısında saklanıyor. Yedeği arada bir indir.') : 'Programın, işaretlerin ve özetlerin yalnızca bu cihazda saklanır; hiçbir sunucuya gönderilmez. Başka bir cihaza geçerken yedeği indirip orada geri yükle.'}</p>
+  ${Cloud.uid ? `<h2 class="menu-h">Hesap</h2>
+  <ul class="menu">
+    <li><div class="mi"><span>Giriş</span><span class="mv">${esc(Cloud.user.email || '')}</span></div></li>
+    <li><button data-act="sign-out"><span>Çıkış yap</span></button></li>
+    <li><button data-act="acct-del" class="danger"><span>Hesabımı sil</span></button></li>
+  </ul>
+  <p class="hint">Programın, işaretlerin ve özetlerin hesabına kaydedilir; telefonda, tablette ve bilgisayarda aynısını görürsün. İnternet yokken de çalışır, bağlanınca eşitlenir. Sınıf arkadaşların ve hocaların yalnızca adını, hedefini ve dershane programındaki ilerlemeni görür.</p>` : `<p class="hint">${ENV === 'artifact' ? (Sync.col ? 'Verilerin Claude hesabında, yalnızca sana görünür şekilde saklanıyor; telefonda ve tablette aynı programı görürsün.' : 'Verilerin bu cihazın tarayıcısında saklanıyor. Yedeği arada bir indir.') : 'Programın, işaretlerin ve özetlerin yalnızca bu cihazda saklanır; hiçbir sunucuya gönderilmez. Başka bir cihaza geçerken yedeği indirip orada geri yükle.'}</p>`}
   <section class="about">
     <h2>Hakkında</h2>
     <p><strong>Ders Özetim</strong>, Esat Taha Polat tarafından geliştirilen açık kaynaklı bir çalışma uygulamasıdır.</p>
@@ -460,19 +509,74 @@ function aiSettingsHTML(){
   </section>` : ''}`;
 }
 
+/* ---------- giriş ---------- */
+const login = { step: 'start', email: '', err: '', busy: false };
+function loginView(){
+  const L = login;
+  return `<main class="welcome login">
+    <div class="w-mascot">${mascotSVG(L.step === 'code' ? 'think' : 'ok', 96)}</div>
+    <h1>Ders Özetim</h1>
+    <p class="w-lede">Programın, konu özetlerin, odak sayacın ve ders arkadaşların tek yerde. Telefonda, tablette ve dershanede aynı hesap.</p>
+    ${L.step === 'code' ? `<form id="l-code" class="w-form">
+      <p><strong>${esc(L.email)}</strong> adresine bir giriş e-postası gönderdik. İçindeki bağlantıya <strong>bu cihazda</strong> dokun, uygulama kendiliğinden açılır. Gelmediyse gereksiz klasörüne bak.</p>
+      <label class="f-h" for="l-c">E-postada kod varsa buraya yaz</label>
+      <input id="l-c" class="input code-in" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456">
+      <p class="err" role="alert">${esc(L.err)}</p>
+      <button class="btn primary lg" type="submit"${L.busy ? ' disabled' : ''}>${L.busy ? 'Kontrol ediliyor…' : 'Kodla giriş yap'}</button>
+      <button class="link" type="button" data-act="l-back">Başka bir e-posta kullan</button>
+    </form>` : `<div class="w-form">
+      <button class="btn lg google" data-act="l-google"${L.busy ? ' disabled' : ''}><svg viewBox="0 0 24 24" aria-hidden="true" style="stroke:none"><path fill="#4285F4" d="M22.5 12.2c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8Z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.2-2.7l-3.5-2.7c-1 .7-2.2 1.1-3.7 1.1-2.9 0-5.3-1.9-6.2-4.5H2.2v2.8A11 11 0 0 0 12 23Z"/><path fill="#FBBC05" d="M5.8 14.2a6.6 6.6 0 0 1 0-4.3V7.1H2.2a11 11 0 0 0 0 9.9l3.6-2.8Z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3 .6 4.2 1.6l3.1-3.1A11 11 0 0 0 2.2 7.1l3.6 2.8C6.7 7.3 9.1 5.4 12 5.4Z"/></svg>Google ile devam et</button>
+      <p class="or"><span>ya da</span></p>
+      <form id="l-mail">
+        <label class="f-h" for="l-e">E-posta adresin</label>
+        <input id="l-e" class="input" type="email" autocomplete="email" inputmode="email" placeholder="ornek@gmail.com" value="${esc(L.email)}" required>
+        <p class="err" role="alert">${esc(L.err)}</p>
+        <button class="btn primary lg" type="submit"${L.busy ? ' disabled' : ''}>${L.busy ? 'Gönderiliyor…' : 'Kod gönder'}</button>
+      </form>
+      <p class="hint">Şifre yok. E-postana tek kullanımlık bir giriş bağlantısı gelir.</p>
+    </div>`}
+    <p class="w-credit">Esat Taha Polat tarafından geliştirildi. Açık kaynak, ücretsiz, reklamsız.</p>
+  </main>`;
+}
+function bindLogin(){
+  const m = $('#l-mail');
+  if (m) m.addEventListener('submit', async e => {
+    e.preventDefault();
+    const email = $('#l-e').value.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ login.err = 'Geçerli bir e-posta yaz.'; render(); return; }
+    login.email = email; login.busy = true; login.err = ''; render();
+    try { await Cloud.sendCode(email); login.step = 'code'; }
+    catch(err){ login.err = /rate|limit|seconds/i.test(err.message || '') ? 'Şu an çok fazla giriş e-postası gönderildi. Biraz sonra tekrar dene ya da Google ile devam et.' : 'Kod gönderilemedi. İnternet bağlantını kontrol et.'; }
+    login.busy = false; render();
+  });
+  const c = $('#l-code');
+  if (c) c.addEventListener('submit', async e => {
+    e.preventDefault();
+    const code = $('#l-c').value.replace(/\s+/g, '');
+    if (code.length < 6) return;
+    login.busy = true; login.err = ''; render();
+    try { await Cloud.verifyCode(login.email, code); login.step = 'start'; login.busy = false; await Cloud.afterLogin(); render(); }
+    catch(err){ login.busy = false; login.err = 'Kod yanlış ya da süresi dolmuş. Tekrar dene.'; render(); }
+  });
+}
+
 /* ---------- karşılama ---------- */
 function welcomeView(){
+  const gn = Cloud.uid ? Cloud.googleName() || (Cloud.profile && Cloud.profile.name) || '' : '';
   return `<main class="welcome">
-    <div class="w-mark" aria-hidden="true">${I.book}</div>
-    <h1>Ders Özetim</h1>
-    <p class="w-lede">Programın, konu özetlerin ve odak sayacın tek bir yerde. Her şey bu cihazda kalır.</p>
+    <div class="w-mascot">${mascotSVG('happy', 88)}</div>
+    <h1>Hoş geldin!</h1>
+    <p class="w-lede">Ben ${MASCOT.name}. Birkaç bilgiyle programını sana göre hazırlayalım.</p>
     <form id="w-form" class="w-form">
       <label class="f-h" for="w-name">Sana nasıl seslenelim?</label>
-      <input id="w-name" class="input" maxlength="30" placeholder="Adın" autocomplete="given-name" required>
+      <input id="w-name" class="input" maxlength="30" placeholder="Adın" autocomplete="given-name" value="${esc(titleCase(gn))}" required>
       <p class="f-h">Alanın</p>
       <div class="chips-row wrap">${Object.keys(TRACKS).map((k, i) => `<label class="fchip radio"><input type="radio" name="w-track" value="${k}"${i === 0 ? ' checked' : ''}>${TRACKS[k].name}</label>`).join('')}</div>
       <label class="f-h" for="w-goal">Hedef bölümün (isteğe bağlı)</label>
       <input id="w-goal" class="input" maxlength="60" placeholder="Örn. Bilgisayar Mühendisliği" autocomplete="off">
+      ${Cloud.uid && !Cloud.school.length ? `<label class="f-h" for="w-code">Dershane kodun (varsa)</label>
+      <input id="w-code" class="input code-in" maxlength="10" placeholder="Hocanın verdiği kod" autocomplete="off" autocapitalize="characters">` : ''}
+      <p class="err" id="w-e" role="alert"></p>
       <button class="btn primary lg" type="submit">Başla</button>
     </form>
     <p class="w-credit">Esat Taha Polat tarafından geliştirildi. Açık kaynak, ücretsiz.</p>
@@ -482,26 +586,40 @@ function welcomeView(){
 /* ---------- çizim ---------- */
 function renderNav(show){
   const nav = $('#tabbar');
+  document.body.classList.toggle('has-nav', !!show);
   if (!show){ nav.hidden = true; return; }
   nav.hidden = false;
-  const active = route.page === 'konu' ? 'kitaplik' : route.page === 'asistan' ? '' : route.page;
-  nav.innerHTML = TABS.map(t => `<a class="tab${active === t.id ? ' on' : ''}" href="#/${t.id}"${active === t.id ? ' aria-current="page"' : ''}>${t.icon}<span>${t.label}</span>${t.id === 'odak' ? '<span class="tab-b" id="tab-odak-b" hidden></span>' : ''}</a>`).join('');
+  const active = route.page === 'konu' ? 'kitaplik' : route.page === 'oda' ? 'odalar' : route.page === 'asistan' ? '' : route.page;
+  const tabs = TABS.filter(t => (t.id !== 'odalar' && t.id !== 'dershane') || Cloud.enabled);
+  nav.innerHTML = `<a class="rail-brand" href="#/bugun" aria-label="Ders Özetim">${mascotSVG('ok', 34)}<span>Ders Özetim</span></a>` + tabs.map(t => `<a class="tab${t.rail ? ' rail-only' : ''}${active === t.id ? ' on' : ''}" href="#/${t.id}"${active === t.id ? ' aria-current="page"' : ''}>${t.icon}<span>${t.label}</span>${t.id === 'odak' ? '<span class="tab-b" id="tab-odak-b" hidden></span>' : ''}</a>`).join('');
 }
+const VIEWS = {};
 function render(){
   const app = $('#app');
+  document.body.classList.toggle('in-room', route.page === 'oda');
+  if (Cloud.enabled && Cloud.booting){ app.innerHTML = `<div class="boot">${mascotSVG('ok', 72)}<p class="hint">Yükleniyor…</p></div>`; renderNav(false); return; }
+  if (Cloud.enabled && !Cloud.uid){ app.innerHTML = loginView(); renderNav(false); bindLogin(); return; }
   if (!DB.d.onboarded){ app.innerHTML = welcomeView(); renderNav(false); bindWelcome(); return; }
-  const views = { bugun: todayView, program: programView, kitaplik: libraryView, konu: topicView, odak: focusView, profil: profileView, asistan: assistantView };
-  app.innerHTML = (views[route.page] || todayView)();
-  renderNav(true);
+  if (route.page === 'oda' && Room.id === route.arg && Room.room && $('#room')){ Room.paintGrid(); Room.paintCtl(); return; }
+  Object.assign(VIEWS, { bugun: todayView, program: programView, kitaplik: libraryView, konu: topicView, odak: focusView, profil: profileView, asistan: assistantView });
+  const v = VIEWS[route.page] || todayView;
+  app.innerHTML = v();
+  renderNav(route.page !== 'oda');
+  if (v.after) v.after();
   checkBadges();
-  pmPaint();
+  pmPaint(); swPaint();
   if (route.page === 'bugun' && DB.d.profile.city && (!WX.data || Date.now() - WX.data.at > 30 * 60 * 1000) && !WX.loading){
     loadWeather().then(() => { if (route.page === 'bugun' && !sheetEl) render(); });
   }
 }
 function bindWelcome(){
-  $('#w-form').addEventListener('submit', e => {
+  $('#w-form').addEventListener('submit', async e => {
     e.preventDefault();
+    const code = $('#w-code') ? $('#w-code').value.trim() : '';
+    if (code){
+      try { await Cloud.joinCode(code); }
+      catch(err){ $('#w-e').textContent = (err.message || 'Kod geçerli değil.') + ' Kodu boş bırakıp sonra Profil sayfasından da katılabilirsin.'; return; }
+    }
     const name = titleCase($('#w-name').value.trim()).slice(0, 30);
     if (!name){ $('#w-name').focus(); return; }
     const tr = $('input[name="w-track"]:checked');
@@ -727,7 +845,15 @@ const ACT = {
   'sheet-close': () => closeSheet(),
   back: () => { if (history.length > 1) history.back(); else go('#/kitaplik'); },
   add: () => taskSheet(route.page === 'program' ? ui.week : thisWeek(), null),
-  edit: el => { const [wk, id] = el.dataset.k.split('|'); const t = DB.task(wk, id); if (t) taskSheet(wk, t); },
+  edit: el => {
+    const [wk, id] = el.dataset.k.split('|'); const t = DB.task(wk, id); if (!t) return;
+    if (t.src === 'dershane'){
+      openSheet('Dershane görevi', `<p class="task-t big">${esc(t.label || sentence(t.text))}</p><p class="hint">${esc(t.school || 'Dershanen')} tarafından gönderildi; değiştirilemez. Bitirdiğinde işaretle, hocan ilerlemeni görür.</p>
+        <div class="row">${t.topic && sumFor(topicSlug(t.subject, t.topic)) ? `<a class="btn primary" href="#/konu/${encodeURIComponent(topicSlug(t.subject, t.topic))}">Konu özetini aç</a>` : ''}<button class="btn" data-act="sheet-close">Kapat</button></div>`);
+      return;
+    }
+    taskSheet(wk, t);
+  },
   upload: () => { $('#file-xlsx').click(); },
   day: el => { ui.day = Number(el.dataset.i); render(); },
   wk: el => { ui.week = wkKey(addDays(fromKey(ui.week), 7 * Number(el.dataset.d))); ui.day = ui.week === thisWeek() ? todayIdx() : 0; render(); },
@@ -746,6 +872,26 @@ const ACT = {
   'topic-pdf': () => { const sd = sumFor(route.arg); if (!sd) return; const w = DB.week(thisWeek()); exportPdf([topicDocHTML({ slug: route.arg, subject: sd.subject, name: sd.name, tasks: w ? w.tasks.filter(t => t.topic && topicSlug(t.subject, t.topic) === route.arg) : [] }, sd, true)], safeName((sd.subject ? sd.subject + ' - ' : '') + sd.name) + '.pdf'); },
   'topic-del': el => { if (el.dataset.armed !== '1'){ el.dataset.armed = '1'; el.textContent = 'Tekrar bas'; return; } delete DB.d.userSums[route.arg]; DB.save(); go('#/kitaplik'); toast('Özet silindi'); },
   'pm-go': () => { T().running ? pmPause() : pmStart(); },
+  'f-mode': el => { ui.fmode = el.dataset.m; render(); },
+  'sw-go': () => { const w = SW(); if (w.running){ w.acc += Date.now() - w.startAt; w.running = false; } else { w.running = true; w.startAt = Date.now(); } DB.persist(); swLoop(); render(); },
+  'sw-save': () => swSave(),
+  'sw-reset': el => { if (el.dataset.armed !== '1'){ el.dataset.armed = '1'; el.textContent = 'Kaydetmeden sıfırla?'; return; } const w = SW(); w.running = false; w.acc = 0; w.startAt = 0; DB.persist(); swLoop(); render(); },
+  'l-google': async () => { login.busy = true; render(); try { await Cloud.google(); } catch(e){ login.busy = false; login.err = 'Google ile giriş şu an açılamadı. E-posta koduyla devam et.'; render(); } },
+  'l-back': () => { login.step = 'start'; login.err = ''; render(); },
+  'sign-out': async el => {
+    if (el.dataset.armed !== '1'){ el.dataset.armed = '1'; el.querySelector('span').textContent = 'Çıkış yapılsın mı? Tekrar bas'; return; }
+    if (Room.id) await Room.leave(); await Cloud.signOut(); login.step = 'start'; go('#/bugun'); render();
+  },
+  'acct-del': el => {
+    const box = openSheet('Hesabını sil', `<p>Hesabın, programın, özetlerin, dershane üyeliklerin ve yazdığın mesajlar kalıcı olarak silinir. Bu geri alınamaz.</p>
+      <p class="hint">Emin olmak için aşağıya <strong>SİL</strong> yaz.</p><input id="ad-t" class="input" autocomplete="off">
+      <div class="row"><button class="btn danger" id="ad-go">Hesabımı sil</button></div>`);
+    $('#ad-go', box).addEventListener('click', async () => {
+      if ($('#ad-t', box).value.trim().toLocaleUpperCase('tr') !== 'SİL') { toast('Onay için SİL yaz.'); return; }
+      try { if (Room.id) await Room.leave(); await Cloud.deleteAccount(); closeSheet(); login.step = 'start'; go('#/bugun'); render(); toast('Hesabın silindi.'); }
+      catch(e){ toast('Silinemedi: ' + e.message); }
+    });
+  },
   'pm-reset': () => { pmSetMode(T().mode); pmLoop(); render(); },
   'pm-mode': el => { if (T().running) return; pmSetMode(el.dataset.m); render(); },
   'focus-set': () => {
@@ -888,6 +1034,7 @@ document.addEventListener('change', e => {
     task.done = t.checked;
     if (t.checked){ task.doneOn = dayKey(); bump(task.doneOn, 'tasks', 1); }
     else { bump(task.doneOn || dayKey(), 'tasks', -1); delete task.doneOn; }
+    if (task.src === 'dershane' && task.pid) Cloud.queueProgress(task.pid);
     if (t.checked && wk === thisWeek() && task.day === todayIdx()){
       const ts = DB.week(wk).tasks.filter(x => x.day === todayIdx());
       const full = DB.d.stats.full = DB.d.stats.full || {};
@@ -905,8 +1052,19 @@ document.addEventListener('input', e => {
   if (e.target.id === 'pl-hours'){ ui.plan.hours = Number(e.target.value); const v = $('#pl-h-v'); if (v) v.textContent = ui.plan.hours + ' saat'; }
   if (e.target.id === 'pl-note' && ui.plan){ ui.plan.note = e.target.value; }
 });
-window.addEventListener('hashchange', () => { parseRoute(); closeSheet(); render(); window.scrollTo(0, 0); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden){ if (T().running) pmTick(); if (route.page === 'bugun') render(); } });
+window.addEventListener('hashchange', () => {
+  parseRoute(); closeSheet();
+  if (Room.id && !(route.page === 'oda' && route.arg === Room.id)) Room.leave();
+  if (route.page === 'odalar') RL.list = null;
+  render(); window.scrollTo(0, 0);
+});
+let lastRefresh = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden){ if (Cloud.uid) Cloud.flushPush(); return; }
+  if (T().running) pmTick();
+  if (route.page === 'bugun') render();
+  if (Cloud.uid && Date.now() - lastRefresh > 20000){ lastRefresh = Date.now(); Cloud.refresh().then(ch => { if (ch && !sheetEl && route.page !== 'oda') render(); }); }
+});
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 
 /* ---------- başlat ---------- */
@@ -921,7 +1079,12 @@ async function boot(){
   parseRoute();
   if (T().running && T().endAt <= Date.now()) pmTick();
   render();
-  pmLoop();
+  if (Cloud.enabled){
+    await Cloud.start();
+    if (/access_token=/.test(location.hash)) history.replaceState(null, '', location.pathname + '#/bugun');
+    parseRoute(); applyTheme(); render();
+  }
+  pmLoop(); swLoop();
   if (ENV === 'web' && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !/[?&]nosw/.test(location.search)){
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
@@ -956,4 +1119,3 @@ async function pullRemote(){
   } catch(e){}
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && ENV === 'artifact') pullRemote(); });
-boot();

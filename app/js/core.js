@@ -7,7 +7,7 @@
  */
 'use strict';
 
-const APP = { name: 'Ders Özetim', author: 'Esat Taha Polat', repo: 'https://github.com/tahap0l/DersOzet', version: '2.1.0' };
+const APP = { name: 'Ders Özetim', author: 'Esat Taha Polat', repo: 'https://github.com/tahap0l/DersOzet', version: '3.0.0' };
 const ENV = window.DO_ENV || 'web'; // 'web': Cloudflare / GitHub sürümü, 'artifact': claude.ai yapıtı
 const CAP = { sample: null, downloads: null };
 
@@ -277,6 +277,7 @@ const DB = {
       weeks: {}, stats: { days: {}, badges: {}, full: {}, plans: 0, imports: 0 },
       focus: { focus: 25, brk: 5, long: 15 },
       timer: { mode: 'focus', left: 25 * 60, endAt: 0, running: false, rounds: 0, roundsDay: '' },
+      sw: { running: false, startAt: 0, acc: 0 },
       userSums: {},
       ai: { engine: 'off', model: 'Qwen3.5-2B-q4f16_1-MLC', ollamaUrl: 'http://localhost:11434', ollamaModel: '' },
       onboarded: false
@@ -284,7 +285,7 @@ const DB = {
   },
   normalize(d){
     const base = this.blank();
-    ['profile', 'focus', 'timer', 'ai', 'stats'].forEach(k => { d[k] = Object.assign({}, base[k], d[k] || {}); });
+    ['profile', 'focus', 'timer', 'sw', 'ai', 'stats'].forEach(k => { d[k] = Object.assign({}, base[k], d[k] || {}); });
     d.v = 4; d.weeks = d.weeks || {}; d.userSums = d.userSums || {}; d.stats.days = d.stats.days || {};
     return d;
   },
@@ -295,9 +296,14 @@ const DB = {
     this.d = this.normalize(d);
   },
   save(){
+    this.d.mtime = Date.now();
     Sync.schedule();
+    if (typeof Cloud !== 'undefined' && Cloud.uid) Cloud.schedulePush();
+    return this.persist();
+  },
+  persist(){
     try { localStorage.setItem(this.KEY, JSON.stringify(this.d)); return true; }
-    catch(e){ if (!Sync.col && window.toast) toast('Cihaz depolaması dolu; son değişiklik kaydedilemedi. Profil > Yedeği indir ile verini kaydet.'); return false; }
+    catch(e){ if (!Sync.col && !(typeof Cloud !== 'undefined' && Cloud.uid) && window.toast) toast('Cihaz depolaması dolu; son değişiklik kaydedilemedi. Profil > Yedeği indir ile verini kaydet.'); return false; }
   },
   migrateV3(d){
     try {

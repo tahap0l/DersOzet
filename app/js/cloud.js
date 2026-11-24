@@ -1,0 +1,214 @@
+/* Ders Özetim — Copyright (C) 2026 Esat Taha Polat — AGPL-3.0
+ *
+ * cloud.js: hesap, buluta eşitleme, dershane üyelikleri ve hocanın yüklediği programlar.
+ * Sunucu: Supabase (giriş, Postgres, canlı kanallar). Şema: supabase/migrations.
+ */
+'use strict';
+
+const Cloud = {
+  sb: null, user: null, profile: null, started: false, booting: true,
+  school: [],            // [{ institution_id, role, class_id, inst: {id,name}, cls: {id,name} | null }]
+  pushT: null, pushing: false, pushAgain: false, pending: false,
+  progT: {}, lastProfile: '',
+
+  get enabled(){ return !!this.sb; },
+  get uid(){ return this.user ? this.user.id : null; },
+  isStaff(inst){ return this.school.some(m => m.institution_id === inst && (m.role === 'owner' || m.role === 'teacher')); },
+  anyStaff(){ return this.school.some(m => m.role === 'owner' || m.role === 'teacher'); },
+  member(inst){ return this.school.find(m => m.institution_id === inst) || null; },
+
+  init(){
+    const C = window.DO_CONFIG || {};
+    if (ENV !== 'web' || !window.supabase || !C.supabaseUrl) return;
+    this.sb = window.supabase.createClient(C.supabaseUrl, C.supabaseKey, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit', storageKey: 'dersozetim.auth' }
+    });
+  },
+
+  async start(){
+    if (!this.sb) { this.booting = false; return; }
+    let session = null;
+    try { const r = await this.sb.auth.getSession(); session = r.data.session; } catch(e){}
+    this.user = session ? session.user : null;
+    this.sb.auth.onAuthStateChange((ev, s) => {
+      const was = this.uid;
+      this.user = s ? s.user : null;
+      if (ev === 'SIGNED_OUT'){ this.school = []; this.profile = null; render(); return; }
+      if (this.uid && this.uid !== was) setTimeout(() => this.afterLogin().then(() => { if (location.hash.includes('access_token')) history.replaceState(null, '', location.pathname + '#/bugun'); parseRoute(); render(); }), 0);
+    });
+    if (this.user) await this.afterLogin();
+    this.booting = false;
+    window.addEventListener('online', () => { if (this.pending) this.schedulePush(10); });
+  },
+
+  /* ---------- giriş ---------- */
+  async sendCode(email){
+    const { error } = await this.sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
+    if (error) throw error;
+  },
+  async verifyCode(email, token){
+    const { data, error } = await this.sb.auth.verifyOtp({ email, token, type: 'email' });
+    if (error) throw error;
+    return data;
+  },
+  async google(){
+    const { error } = await this.sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } });
+    if (error) throw error;
+  },
+  async signOut(){
+    await this.flushPush();
+    try { await this.sb.auth.signOut(); } catch(e){}
+    this.user = null; this.school = []; this.profile = null;
+    const keep = { ai: DB.d.ai, theme: DB.d.profile.theme };
+    DB.d = DB.normalize(DB.blank()); DB.d.ai = keep.ai; DB.d.profile.theme = keep.theme; DB.persist();
+  },
+  async deleteAccount(){
+    const { error } = await this.sb.rpc('delete_my_account'); if (error) throw error;
+    try { await this.sb.auth.signOut(); } catch(e){}
+    localStorage.removeItem(DB.KEY); this.user = null; DB.load();
+  },
+
+  async afterLogin(){
+    try { await this.pullState(); } catch(e){ console.warn('state', e); }
+    try { await this.loadProfile(); } catch(e){}
+    try { await this.loadSchool(); } catch(e){}
+    try { await this.pullPrograms(); } catch(e){ console.warn('programs', e); }
+  },
+
+  /* ---------- kişisel verinin eşitlenmesi ---------- */
+  outgoing(){ const d = Object.assign({}, DB.d); delete d.ai; delete d.timer; delete d.sw; delete d.owner; return d; },
+  async pullState(){
+    const me = this.uid; if (!me) return;
+    const { data, error } = await this.sb.from('user_state').select('data, updated_at').eq('user_id', me).maybeSingle();
+    if (error) throw error;
+    const local = DB.d, keep = { ai: local.ai, timer: local.timer, sw: local.sw };
+    let push = false;
+    if (local.owner && local.owner !== me){
+      DB.d = DB.normalize(data ? data.data : DB.blank());
+    } else if (data && (data.data.mtime || 0) > (local.mtime || 0)){
+      DB.d = DB.normalize(data.data);
+    } else if (local.onboarded){ push = true; }
+    Object.assign(DB.d, keep); DB.d.owner = me; DB.persist();
+    if (push) await this.push();
+  },
+  schedulePush(ms){
+    if (!this.uid) return;
+    this.pending = true;
+    clearTimeout(this.pushT); this.pushT = setTimeout(() => this.push(), ms == null ? 1500 : ms);
+  },
+  async push(){
+    if (!this.uid) return;
+    if (this.pushing){ this.pushAgain = true; return; }
+    this.pushing = true; clearTimeout(this.pushT); this.pushT = null;
+    try {
+      const { error } = await this.sb.from('user_state').upsert({ user_id: this.uid, data: this.outgoing() });
+      if (error) throw error;
+      this.pending = false;
+      await this.pushProfile();
+    } catch(e){ this.pending = true; }
+    finally { this.pushing = false; if (this.pushAgain){ this.pushAgain = false; this.schedulePush(); } }
+  },
+  async flushPush(){ if (this.pending || this.pushT) await this.push(); },
+  async refresh(){
+    if (!this.uid || this.pending || this.pushing) return false;
+    try {
+      const { data } = await this.sb.from('user_state').select('data').eq('user_id', this.uid).maybeSingle();
+      let changed = false;
+      if (data && (data.data.mtime || 0) > (DB.d.mtime || 0)){
+        const keep = { ai: DB.d.ai, timer: DB.d.timer, sw: DB.d.sw, owner: DB.d.owner };
+        DB.d = Object.assign(DB.normalize(data.data), keep); DB.persist(); changed = true;
+      }
+      if (await this.pullPrograms()) changed = true;
+      return changed;
+    } catch(e){ return false; }
+  },
+
+  /* ---------- profil (sınıf arkadaşları ve hocalar adını görür) ---------- */
+  profileRow(){ const p = DB.d.profile, g = p.goal || {}; return { name: (p.name || '').slice(0, 40), track: String(p.track || 'SAY').toLowerCase(), goal: [g.school, g.dept].filter(Boolean).join(', ').slice(0, 80), palette: p.palette || 'lavanta' }; },
+  async loadProfile(){
+    const { data } = await this.sb.from('profiles').select('*').eq('id', this.uid).maybeSingle();
+    this.profile = data || null;
+    if (data){
+      this.lastProfile = JSON.stringify({ name: data.name, track: data.track, goal: data.goal, palette: data.palette });
+      if (!DB.d.profile.name && data.name) DB.d.profile.name = data.name;
+    }
+  },
+  async pushProfile(){
+    if (!this.uid || !DB.d.onboarded) return;
+    const row = this.profileRow(), js = JSON.stringify(row);
+    if (js === this.lastProfile) return;
+    const { error } = await this.sb.from('profiles').update(row).eq('id', this.uid);
+    if (!error){ this.lastProfile = js; this.profile = Object.assign(this.profile || {}, row); }
+  },
+  googleName(){ const m = this.user && this.user.user_metadata || {}; return (m.full_name || m.name || '').split(' ')[0] || ''; },
+
+  /* ---------- dershane ---------- */
+  async loadSchool(){
+    const { data, error } = await this.sb.from('memberships')
+      .select('institution_id, role, class_id, joined_at, inst:institutions(id, name), cls:classes(id, name)')
+      .eq('user_id', this.uid).order('joined_at');
+    if (error) throw error;
+    this.school = data || [];
+    return this.school;
+  },
+  async rpc(fn, args){ const { data, error } = await this.sb.rpc(fn, args || {}); if (error) throw error; return data; },
+  async joinCode(code){ const r = await this.rpc('join_with_code', { p_code: code }); await this.loadSchool(); await this.pullPrograms(); return r; },
+
+  /* ---------- hocanın yüklediği programlar (öğrenci tarafı) ---------- */
+  async pullPrograms(){
+    const studentOf = new Set(this.school.filter(m => m.role === 'student').map(m => m.institution_id));
+    const since = wkKey(addDays(fromKey(thisWeek()), -21));
+    let progs = [];
+    if (studentOf.size){
+      const { data, error } = await this.sb.from('programs').select('id, institution_id, week_start, title, tasks, updated_at')
+        .in('institution_id', Array.from(studentOf)).gte('week_start', since).order('created_at');
+      if (error) throw error;
+      progs = data || [];
+    }
+    const remote = {};
+    if (progs.length){
+      const { data } = await this.sb.from('program_progress').select('program_id, done').eq('user_id', this.uid).in('program_id', progs.map(p => p.id));
+      (data || []).forEach(r => { remote[r.program_id] = r.done || {}; });
+    }
+    const sig = JSON.stringify(progs.map(p => [p.id, p.updated_at])) + JSON.stringify(remote);
+    const ids = new Set(progs.map(p => p.id));
+    let changed = false;
+    Object.keys(DB.d.weeks).forEach(wk => {
+      if (wk < since) return;
+      const w = DB.d.weeks[wk], before = w.tasks.length;
+      w.tasks = w.tasks.filter(t => t.src !== 'dershane' || ids.has(t.pid));
+      if (w.tasks.length !== before) changed = true;
+    });
+    progs.forEach(p => {
+      const wk = wkKey(mondayOf(fromKey(p.week_start))), w = DB.ensureWeek(wk);
+      const inst = (this.member(p.institution_id) || {}).inst || {};
+      const old = {}; w.tasks.filter(t => t.pid === p.id).forEach(t => { old[t.pi] = t; });
+      const done = remote[p.id] || {};
+      const fresh = (p.tasks || []).map((t, i) => {
+        const o = old[i];
+        const isDone = o ? !!o.done : !!done[i];
+        return { id: 'd' + p.id.slice(0, 8) + '-' + i, pid: p.id, pi: i, src: 'dershane', school: inst.name || '',
+          day: Math.max(0, Math.min(6, Number(t.day) || 0)), text: String(t.text || ''), label: String(t.label || t.text || ''),
+          type: t.type || guessTask(String(t.text || '')).type, subject: t.subject || '', topic: t.topic || '',
+          done: isDone, doneOn: o ? o.doneOn : (typeof done[i] === 'string' ? done[i] : undefined) };
+      });
+      const before = JSON.stringify(w.tasks.filter(t => t.pid === p.id));
+      w.tasks = w.tasks.filter(t => t.pid !== p.id).concat(fresh);
+      if (p.title && !w.label) w.label = p.title;
+      if (before !== JSON.stringify(fresh)) changed = true;
+    });
+    if (changed){ DB.persist(); }
+    this.progSig = sig;
+    return changed;
+  },
+  queueProgress(pid){
+    clearTimeout(this.progT[pid]);
+    this.progT[pid] = setTimeout(() => this.pushProgress(pid), 900);
+  },
+  async pushProgress(pid){
+    const done = {};
+    Object.values(DB.d.weeks).forEach(w => w.tasks.forEach(t => { if (t.pid === pid && t.done) done[t.pi] = t.doneOn || dayKey(); }));
+    try { await this.sb.from('program_progress').upsert({ program_id: pid, user_id: this.uid, done }); } catch(e){}
+  }
+};
+Cloud.init();
