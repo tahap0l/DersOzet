@@ -1,0 +1,8 @@
+# Ders Özetim — Cloudflare Pages ayarları.
+# Site dosyaları kök dizindedir; functions/ klasöründeki /api/ai fonksiyonu Workers AI'ı kullanır.
+name = "dersozet"
+pages_build_output_dir = "."
+compatibility_date = "2026-11-01"
+
+[ai]
+binding = "AI"
