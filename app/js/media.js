@@ -52,9 +52,10 @@ const Player = {
     el.hidden = false; el.dataset.size = this.size;
     document.body.classList.add('has-player');
     const m = MD(); m.last = { url: p.url, title: item.title || '' }; DB.save();
+    if (typeof Room !== 'undefined' && Room.id) Room.retrack();
     return true;
   },
-  close(){ const el = this.el(); if (el){ el.innerHTML = ''; el.hidden = true; } this.cur = null; document.body.classList.remove('has-player'); },
+  close(){ const el = this.el(); if (el){ el.innerHTML = ''; el.hidden = true; } this.cur = null; document.body.classList.remove('has-player'); if (typeof Room !== 'undefined' && Room.id) Room.retrack(); },
   toggle(){ this.size = this.size === 'mini' ? 'big' : this.size === 'big' ? 'hide' : 'mini'; const el = this.el(); if (el) el.dataset.size = this.size; }
 };
 

@@ -1,6 +1,6 @@
 /* Ders Özetim — Copyright (C) 2026 Esat Taha Polat — AGPL-3.0
  * Çevrimdışı çalışma: uygulama dosyaları önbelleğe alınır. Yeni sürüm yayımlarken VERSION'ı artır. */
-const VERSION = 'dersozetim-3.5.0';
+const VERSION = 'dersozetim-3.6.0';
 const CORE = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/config.js', 'js/core.js', 'js/motivation.js', 'js/ai.js', 'js/pdf.js', 'js/cloud.js', 'js/app.js', 'js/mascot.js', 'js/school.js', 'js/rooms.js', 'js/spotify.js', 'js/media.js', 'js/admin.js', 'js/notes.js', 'js/install.js', 'js/main.js', 'data/library.json',

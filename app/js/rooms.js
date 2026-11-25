@@ -100,14 +100,47 @@ const Room = {
     Object.keys(this.peers).forEach(u => this.dropPeer(u));
     if (this.local){ this.local.getTracks().forEach(t => t.stop()); this.local = null; }
     this.mic = false; this.cam = false;
+    Object.values(this.levels).forEach(L => { try { L.src.disconnect(); } catch(e){} }); this.levels = {}; clearInterval(this.levelT); this.levelT = null;
     if (ch){ try { await ch.untrack(); } catch(e){} try { await Cloud.sb.removeChannel(ch); } catch(e){} }
     if (this.wake){ try { this.wake.release(); } catch(e){} this.wake = null; }
     this.id = null; this.room = null;
     if (!silent) RL.list = null;
   },
 
-  me(){ const t = this.room && this.room.timer || {}; return { uid: Cloud.uid, name: DB.d.profile.name || 'Ben', mic: this.mic, cam: this.cam, st: t.running ? t.mode : 'idle', at: Date.now() }; },
-  track(){ if (this.ch) this.ch.track(this.me()).catch(() => {}); },
+  me(){ const t = this.room && this.room.timer || {}; return { uid: Cloud.uid, name: DB.d.profile.name || 'Ben', mic: this.mic, cam: this.cam, st: t.running ? t.mode : 'idle', doing: roomDoing(), music: roomMusic(), at: Date.now() }; },
+  track(){ if (this.ch){ const m = this.me(); this.lastSig = JSON.stringify([m.doing, m.music, m.mic, m.cam, m.st]); this.ch.track(m).catch(() => {}); } },
+  retrack(){ if (!this.ch) return; const m = this.me(); if (JSON.stringify([m.doing, m.music, m.mic, m.cam, m.st]) !== this.lastSig){ this.track(); this.paintTile(Cloud.uid); } },
+
+  /* --- konuşanı bulma: ses seviyesi eşiği aşınca kutunun çevresi yeşil yanar --- */
+  levels: {},
+  watchLevel(uid, stream){
+    const L = this.levels[uid];
+    const tr = stream && stream.getAudioTracks().find(t => t.readyState === 'live');
+    if (!tr){ if (L){ try { L.src.disconnect(); } catch(e){} delete this.levels[uid]; } return; }
+    if (L && L.track === tr) return;
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      if (L){ try { L.src.disconnect(); } catch(e){} }
+      const src = audioCtx.createMediaStreamSource(new MediaStream([tr])), an = audioCtx.createAnalyser();
+      an.fftSize = 512; an.smoothingTimeConstant = 0.4; src.connect(an);
+      this.levels[uid] = { src, an, track: tr, buf: new Float32Array(an.fftSize), until: 0 };
+    } catch(e){}
+    if (!this.levelT) this.levelT = setInterval(() => this.checkLevels(), 120);
+  },
+  checkLevels(){
+    const g = $('#rg'); if (!g || !this.id){ clearInterval(this.levelT); this.levelT = null; return; }
+    const now = Date.now();
+    Object.entries(this.levels).forEach(([uid, L]) => {
+      L.an.getFloatTimeDomainData(L.buf);
+      let sum = 0; for (let i = 0; i < L.buf.length; i++) sum += L.buf[i] * L.buf[i];
+      const rms = Math.sqrt(sum / L.buf.length);
+      const self = uid === Cloud.uid, live = self ? this.mic : (this.present[uid] && this.present[uid].mic) && !this.muted.has(uid);
+      if (live && rms > 0.025) L.until = now + 350;
+      const el = g.querySelector('.tile[data-u="' + uid + '"]');
+      if (el) el.classList.toggle('speaking', L.until > now);
+    });
+  },
 
   onSync(){
     const st = this.ch ? this.ch.presenceState() : {};
@@ -258,7 +291,7 @@ const Room = {
     let el = g.querySelector('.tile[data-u="' + u + '"]');
     if (!el){
       el = document.createElement('div'); el.className = 'tile'; el.dataset.u = u;
-      el.innerHTML = `<video playsinline autoplay${self ? ' muted' : ''}></video><span class="t-av" aria-hidden="true"></span><span class="t-name"></span><span class="t-st"></span>${self ? '' : `<button class="t-menu icon-btn ghost sm" data-act="rm-who" data-u="${u}" aria-label="Seçenekler">${I.dots}</button>`}`;
+      el.innerHTML = `<video playsinline autoplay${self ? ' muted' : ''}></video><span class="t-av" aria-hidden="true"></span><span class="t-info"></span><span class="t-name"></span><span class="t-st"></span>${self ? '' : `<button class="t-menu icon-btn ghost sm" data-act="rm-who" data-u="${u}" aria-label="Seçenekler">${I.dots}</button>`}`;
       if (self) g.prepend(el); else g.appendChild(el);
     }
     const v = el.querySelector('video');
@@ -272,6 +305,10 @@ const Room = {
     el.classList.toggle('mirror', self && this.front);
     el.querySelector('.t-av').textContent = String(info.name || '?').charAt(0).toLocaleUpperCase('tr');
     el.querySelector('.t-name').textContent = (info.name || '') + (self ? ' (sen)' : '');
+    const mu = info.music, dg = info.doing;
+    el.querySelector('.t-info').innerHTML = (dg ? `<span class="ti doing">${I.book}<span>${esc(dg)}</span></span>` : '')
+      + (mu && mu.t ? `<span class="ti music ${mu.k === 'yt' ? 'yt' : 'sp'}">${mu.k === 'yt' ? I.play : I.music}<span>${esc(mu.t)}</span></span>` : '');
+    this.watchLevel(u, stream);
     const P = this.peers[u], conn = !self && P && (info.mic || info.cam) && P.pc.connectionState !== 'connected' ? ' · bağlanıyor' : '';
     el.querySelector('.t-st').innerHTML = (info.mic ? I.mic : I.micOff) + (this.muted.has(u) ? '<span>sessizde</span>' : '') + (conn ? `<span>${conn.slice(3)}</span>` : '');
   },
@@ -311,7 +348,7 @@ function roomView(){
   return `<div id="room" class="room" data-tab="${Room.tab}">
     <header class="room-top">
       <button class="icon-btn" data-act="rm-leave" aria-label="Odadan çık">${I.back}</button>
-      <div class="rt-b"><h1>${esc(r.name)}</h1><p class="hint"><span id="rm-count">1 kişi</span>${r.code ? ` · kod <button class="code-chip" data-act="rm-share">${esc(r.code)}</button>` : ''}<span id="rm-status"></span></p></div>
+      <div class="rt-b"><h1>${esc(r.name)}</h1><p class="hint"><span id="rm-count">1 kişi</span> · <button class="code-chip doing" data-act="rm-doing">${esc(roomDoing() || 'Ne çalışıyorsun?')}</button>${r.code ? ` · kod <button class="code-chip" data-act="rm-share">${esc(r.code)}</button>` : ''}<span id="rm-status"></span></p></div>
       <button class="icon-btn" data-act="rm-menu" aria-label="Oda seçenekleri">${I.dots}</button>
     </header>
     <section class="rt" id="rt">
@@ -481,3 +518,36 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && Ro
 window.addEventListener('pagehide', () => { if (Room.id) Room.leave(true); });
 VIEWS.odalar = roomsView;
 VIEWS.oda = roomView;
+
+
+/* --- odada görünen "ne çalışıyor, ne dinliyor" bilgisi --- */
+function roomDoing(){
+  const p = DB.d.profile;
+  if (p.roomDoing && p.roomDoingDay === dayKey()) return p.roomDoing.slice(0, 80);
+  const w = DB.week(thisWeek()), t = w && w.tasks.find(x => x.day === todayIdx() && !x.done);
+  return t ? ((t.subject ? t.subject + ': ' : '') + (t.topic || t.label || t.text)).slice(0, 80) : '';
+}
+function roomMusic(){
+  if (DB.d.profile.shareMusic === false) return null;
+  if (typeof Player !== 'undefined' && Player.cur) return { k: Player.cur.kind, t: String(Player.cur.title || '').slice(0, 80) };
+  if (typeof SP !== 'undefined' && SP.on && SP.now && SP.now.is_playing && SP.now.item){
+    const it = SP.now.item, who = it.artists ? it.artists.map(a => a.name).join(', ') : '';
+    return { k: 'sp', t: (it.name + (who ? ' · ' + who : '')).slice(0, 80) };
+  }
+  return null;
+}
+function roomDoingSheet(){
+  const w = DB.week(thisWeek()), ts = w ? w.tasks.filter(x => x.day === todayIdx()) : [], p = DB.d.profile;
+  const cur = roomDoing();
+  const box = openSheet('Şu an ne çalışıyorsun?', `<p class="hint">Odadakiler adının üstünde görür.</p>
+    ${ts.length ? `<ul class="menu">${ts.map((t, i) => { const v = ((t.subject ? t.subject + ': ' : '') + (t.topic || t.label || t.text)).slice(0, 80); return `<li><button data-v="${esc(v)}"><span>${esc(v)}</span>${v === cur ? '<span class="mv">seçili</span>' : t.done ? '<span class="mv">bitti</span>' : ''}</button></li>`; }).join('')}</ul>` : ''}
+    <label class="f-h" for="rd-x">Kendin yaz</label>
+    <form class="m-form" id="rd-f"><input id="rd-x" class="input" maxlength="80" placeholder="Örn. TYT deneme, paragraf" value="${esc(p.roomDoing && p.roomDoingDay === dayKey() ? p.roomDoing : '')}" autocomplete="off"><button class="btn primary">Kaydet</button></form>
+    <label class="opt"><input type="checkbox" id="rd-m"${p.shareMusic === false ? '' : ' checked'}><span><strong>Dinlediğimi göster</strong><span>Spotify'da ya da burada çalan şarkı veya video adı odada görünür.</span></span></label>`);
+  const set = v => { p.roomDoing = v; p.roomDoingDay = dayKey(); DB.save(); closeSheet(); Room.retrack(); const c = $('.code-chip.doing'); if (c) c.textContent = roomDoing() || 'Ne çalışıyorsun?'; };
+  box.addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) set(b.dataset.v); });
+  $('#rd-f', box).addEventListener('submit', e => { e.preventDefault(); set($('#rd-x', box).value.trim()); });
+  $('#rd-m', box).addEventListener('change', e => { p.shareMusic = e.target.checked; DB.save(); Room.retrack(); });
+}
+ACT['rm-doing'] = () => roomDoingSheet();
+setInterval(() => { if (Room.id && Room.ch) Room.retrack(); }, 4000);
