@@ -15,7 +15,9 @@ Geliştiren: **Esat Taha Polat** ([@tahap0l](https://github.com/tahap0l))
 - **Program:** Koçunun gönderdiği Excel programını yükle (birden fazla hafta aynı anda), görevlerini kendin yaz ya da düzenle. Görevler konu kitaplığıyla otomatik eşleşir.
 - **Plan oluştur:** Derslerini, zorlandığın dersleri, günlük saatini ve günlerini seç; sana göre haftalık plan hazırlansın. Yapay zekâ gerekmez.
 - **Kitaplık:** Hazır YKS konu özetleri (konu anlatımı, formüller, kavramlar, sık yapılan hatalar, çözümlü sorular). Türkçe karakter yazmadan arayabilirsin.
-- **Odak:** Odak ve mola sayacı (25/5 ya da kendi sürelerin), kronometre, son 7 günün odak grafiği.
+- **Odak:** Odak ve mola sayacı (25/5 ya da kendi sürelerin), kronometre, son 7 günün odak grafiği. Sayaç ve kronometre hesapta durur; telefonda ve bilgisayarda aynı anda akar.
+- **Müzik ve video:** YouTube'daki ders videosunu ya da Spotify listesini uygulamanın içinde aç; oynatıcı sayfa değişince de çalmaya devam eder.
+- **Yönetici paneli:** Kullanıcılar, dershaneler, odalar ve şikâyetler; mesaj silme, oda kapatma, kullanıcı engelleme. Yalnızca `app_admins` tablosundaki hesaplar açabilir.
 - **PDF:** Tek konuyu ya da haftanın programını konu özetleriyle birlikte A4 PDF olarak indir.
 - **Profil:** Ad, alan, hedef, sınav tarihi, şehir, renk teması, dershane üyelikleri, hesabı silme.
 
@@ -75,6 +77,8 @@ app/js/cloud.js            giriş, buluta eşitleme, dershane üyelikleri, hocan
 app/js/school.js           dershane paneli
 app/js/rooms.js            ders odaları: ortak sayaç, sohbet, ses ve görüntü
 app/js/mascot.js           maskot Mürek
+app/js/media.js            YouTube ve Spotify oynatıcı
+app/js/admin.js            yönetici paneli
 app/js/motivation.js       renk temaları, rozetler, günün sözü, hedefler
 app/js/app.js              arayüz ve sayfalar
 app/js/ai.js               WebLLM, Ollama ve Claude bağlantısı, istemler

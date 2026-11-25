@@ -37,6 +37,10 @@ const I = {
   leave: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14M10 8l-4 4 4 4M6 12h10"/></svg>',
   eye: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/></svg>',
   watch: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5l3-3M10 2.5h4"/></svg>',
+  close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  expand: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>',
+  music: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v6c0 4.5 3.2 7.8 7.5 9 4.3-1.2 7.5-4.5 7.5-9V6Z"/><path d="m9 12 2 2 4-4"/></svg>',
   spark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8L12 17.5l-1.8-5.2L5 10.5l5.2-1.8Z"/><path d="M18.5 16l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7Z"/></svg>'
 };
 const TABS = [
@@ -46,6 +50,8 @@ const TABS = [
   { id: 'odak', label: 'Odak', icon: I.timer },
   { id: 'kitaplik', label: 'Kitaplık', icon: I.book },
   { id: 'dershane', label: 'Dershane', icon: I.school, rail: true },
+  { id: 'medya', label: 'Müzik ve video', icon: I.music, rail: true },
+  { id: 'admin', label: 'Yönetici', icon: I.shield, rail: true, admin: true },
   { id: 'profil', label: 'Profil', icon: I.user }
 ];
 
@@ -350,6 +356,7 @@ function focusView(){
     <div class="ring-c"><p class="pm-time" id="pm-time" role="timer" aria-live="off">${pmFmt(pmLeft())}</p><p class="pm-mode">${MODE_NAME[t.mode]}, ${modeMins(t.mode)} dk</p></div>
   </div>
   <div class="pm-ctl"><button class="btn primary lg" data-act="pm-go" id="pm-go">Başlat</button><button class="btn lg" data-act="pm-reset">Sıfırla</button></div>`}
+  <a class="focus-cta" href="#/medya"><span class="fc-ic">${I.music}</span><span><strong>${Player.cur ? 'Çalıyor: ' + esc(Player.cur.title || '') : 'Müzik ve video'}</strong><span>YouTube'da ders videosu, Spotify'da çalışma listesi.</span></span><span class="fc-go">${I.next}</span></a>
   ${Cloud.enabled ? `<a class="focus-cta" href="#/odalar"><span class="fc-ic">${I.rooms}</span><span><strong>Arkadaşlarınla çalış</strong><span>Ortak sayaçlı bir odaya gir; kamera isteğe bağlı.</span></span><span class="fc-go">${I.next}</span></a>` : ''}
   <p class="hint center">Bugün ${t.rounds} odak turu, ${(DB.d.stats.days[dayKey()] || {}).focus || 0}/${DB.d.profile.dailyFocus || 120} dakika. En az 10 dakikalık odak günlük serine sayılır.</p>
   ${DB.d.profile.why ? `<aside class="why small"><p class="why-t">${esc(DB.d.profile.why)}</p></aside>` : ''}
@@ -384,6 +391,8 @@ function profileView(){
     <li><button data-act="p-theme"><span>Açık ya da koyu</span><span class="mv">${theme}</span></button></li>
     <li><button data-act="p-sound"><span>Sayaç sesi</span><span class="mv">${p.sound === false ? 'Kapalı' : 'Açık'}</span></button></li>
     <li><a href="#/asistan/ayar"><span>Yapay zekâ</span><span class="mv">${esc(AI.label())}</span></a></li>
+    <li><a href="#/medya"><span>Müzik ve video</span><span class="mv">YouTube, Spotify</span></a></li>
+    ${Cloud.isAdmin ? '<li><a href="#/admin"><span>Yönetici paneli</span><span class="mv">Sadece sen görürsün</span></a></li>' : ''}
   </ul>
   ${Cloud.uid ? `<h2 class="menu-h">Dershane</h2>
   <ul class="menu">
@@ -631,7 +640,7 @@ function renderNav(show){
   if (!show){ nav.hidden = true; return; }
   nav.hidden = false;
   const active = route.page === 'konu' ? 'kitaplik' : route.page === 'oda' ? 'odalar' : route.page === 'asistan' ? '' : route.page;
-  const tabs = TABS.filter(t => (t.id !== 'odalar' && t.id !== 'dershane') || Cloud.enabled);
+  const tabs = TABS.filter(t => ((t.id !== 'odalar' && t.id !== 'dershane') || Cloud.enabled) && (!t.admin || Cloud.isAdmin));
   nav.innerHTML = `<a class="rail-brand" href="#/bugun" aria-label="Ders Özetim">${mascotSVG('ok', 34)}<span>Ders Özetim</span></a>` + tabs.map(t => `<a class="tab${t.rail ? ' rail-only' : ''}${active === t.id ? ' on' : ''}" href="#/${t.id}"${active === t.id ? ' aria-current="page"' : ''}>${t.icon}<span>${t.label}</span>${t.id === 'odak' ? '<span class="tab-b" id="tab-odak-b" hidden></span>' : ''}</a>`).join('');
 }
 const VIEWS = {};

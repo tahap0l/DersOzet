@@ -93,7 +93,7 @@ const Cloud = {
   async signOut(){
     await this.flushPush();
     try { await this.sb.auth.signOut(); } catch(e){}
-    this.user = null; this.school = []; this.profile = null;
+    this.user = null; this.school = []; this.profile = null; this.isAdmin = false;
     if (this.stateCh){ try { this.sb.removeChannel(this.stateCh); } catch(e){} this.stateCh = null; }
     const keep = { ai: DB.d.ai, theme: DB.d.profile.theme };
     DB.d = DB.normalize(DB.blank()); DB.d.ai = keep.ai; DB.d.profile.theme = keep.theme; DB.persist();
@@ -128,6 +128,7 @@ const Cloud = {
     try { await this.pullState(); } catch(e){ console.warn('state', e); }
     this.listenState();
     try { await this.loadProfile(); } catch(e){}
+    try { this.isAdmin = !!(await this.rpc('is_app_admin')); } catch(e){ this.isAdmin = false; }
     try { await this.loadSchool(); } catch(e){}
     try { await this.pullPrograms(); } catch(e){ console.warn('programs', e); }
   },
