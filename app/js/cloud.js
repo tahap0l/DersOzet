@@ -13,6 +13,7 @@ const Cloud = {
 
   get enabled(){ return !!this.sb; },
   get uid(){ return this.user ? this.user.id : null; },
+  async token(){ try { const r = await this.sb.auth.getSession(); return r.data.session ? r.data.session.access_token : null; } catch(e){ return null; } },
   isStaff(inst){ return this.school.some(m => m.institution_id === inst && (m.role === 'owner' || m.role === 'teacher')); },
   anyStaff(){ return this.school.some(m => m.role === 'owner' || m.role === 'teacher'); },
   member(inst){ return this.school.find(m => m.institution_id === inst) || null; },

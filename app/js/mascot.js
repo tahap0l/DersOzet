@@ -174,5 +174,5 @@ function mChatSheet(){
 Object.assign(ACT, {
   'm-topics': () => mTopicsSheet(),
   'm-quiz': () => mQuizSheet(),
-  'm-chat': () => mChatSheet()
+  'm-chat': () => go('#/asistan/sor')
 });

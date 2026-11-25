@@ -7,7 +7,7 @@
  */
 'use strict';
 
-const APP = { name: 'Ders Özetim', author: 'Esat Taha Polat', repo: 'https://github.com/tahap0l/DersOzet', version: '3.7.0' };
+const APP = { name: 'Ders Özetim', author: 'Esat Taha Polat', repo: 'https://github.com/tahap0l/DersOzet', version: '3.8.0' };
 const ENV = window.DO_ENV || 'web'; // 'web': Cloudflare / GitHub sürümü, 'artifact': claude.ai yapıtı
 const CAP = { sample: null, downloads: null };
 
@@ -279,13 +279,15 @@ const DB = {
       timer: { mode: 'focus', left: 25 * 60, endAt: 0, running: false, rounds: 0, roundsDay: '' },
       sw: { running: false, startAt: 0, acc: 0 },
       userSums: {},
-      ai: { engine: 'off', model: 'Qwen3.5-2B-q4f16_1-MLC', ollamaUrl: 'http://localhost:11434', ollamaModel: '' },
+      ai: { engine: 'bulut', v2: true, model: 'Qwen3.5-2B-q4f16_1-MLC', ollamaUrl: 'http://localhost:11434', ollamaModel: '' },
       onboarded: false
     };
   },
   normalize(d){
     const base = this.blank();
+    const aiV2 = !!(d.ai && d.ai.v2);
     ['profile', 'focus', 'timer', 'sw', 'ai', 'stats'].forEach(k => { d[k] = Object.assign({}, base[k], d[k] || {}); });
+    if (!aiV2){ if (d.ai.engine !== 'ollama' && ENV !== 'artifact') d.ai.engine = 'bulut'; d.ai.v2 = true; }
     d.v = 4; d.weeks = d.weeks || {}; d.userSums = d.userSums || {}; d.stats.days = d.stats.days || {};
     return d;
   },
@@ -395,44 +397,6 @@ function streakInfo(){
 const YKS_GUESS = '2027-06-19';
 const yksDate = () => DB.d.profile.yks || YKS_GUESS;
 function daysLeft(){ const n = new Date(); n.setHours(0, 0, 0, 0); return Math.max(0, Math.round((fromKey(yksDate()) - n) / 864e5)); }
-
-/* ---------- yapay zekâsız hızlı plan oluşturucu ---------- */
-function quickPlan(o){
-  const subjects = o.subjects.length ? o.subjects : TRACKS[DB.d.profile.track].subjects;
-  const blocks = Math.max(1, Math.min(12, Math.round(o.hours * 60 / 50)));
-  const pool = [];
-  subjects.forEach(s => { pool.push(s); if (o.weak.includes(s)) pool.push(s); });
-  const topicQ = {};
-  subjects.forEach(s => { topicQ[s] = topicsOfSubject(s); });
-  const used = new Set();
-  const nextTopic = s => {
-    const list = topicQ[s] || [];
-    const t = list.find(x => !used.has(s + x)) || list[0] || '';
-    if (t) used.add(s + t);
-    return t;
-  };
-  let cursor = 0;
-  const out = [];
-  o.days.slice().sort().forEach(day => {
-    if (day === 6 && o.days.length > 1){
-      out.push({ day, subject: '', topic: 'Genel tekrar', text: 'Haftanın genel tekrarı (tüm dersler)' });
-      if (blocks > 1) out.push({ day, subject: '', topic: '', text: 'Deneme sınavı çöz ve yanlışlarını not et' });
-      return;
-    }
-    const seen = {};
-    for (let b = 0; b < blocks; b++){
-      const s = pool[cursor % pool.length]; cursor++;
-      if (!seen[s]){
-        const t = nextTopic(s); seen[s] = t || true;
-        out.push({ day, subject: s, topic: t, text: t ? s + ': ' + t + ' konu çalış' : s + ': konu çalış' });
-      } else {
-        const t = typeof seen[s] === 'string' ? seen[s] : '';
-        out.push({ day, subject: s, topic: t, text: s + ': ' + (t ? t + ' ' : '') + '20 soru çöz' });
-      }
-    }
-  });
-  return out;
-}
 
 /* ---------- hava durumu (Open-Meteo, anahtar gerektirmez) ---------- */
 const WX = { data: null, loading: false };

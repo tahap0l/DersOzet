@@ -13,7 +13,8 @@ Geliştiren: **Esat Taha Polat** ([@tahap0l](https://github.com/tahap0l))
 - **Dershane:** Hoca dershaneyi ve sınıfları kurar, sınıf kodunu öğrencilere verir, Excel programını ya da kendi yazdığı haftayı sınıfa veya tek öğrenciye gönderir ve ilerlemeyi görür. Program öğrencinin uygulamasına kendiliğinden düşer.
 - **Odalar:** Dershane ya da kodla girilen arkadaş odalarında ortak odak sayacı, sohbet, isteğe bağlı ses ve görüntü (WebRTC). Şikâyet, sessize alma ve odadan çıkarma var.
 - **Program:** Koçunun gönderdiği Excel programını yükle (birden fazla hafta aynı anda), görevlerini kendin yaz ya da düzenle. Görevler konu kitaplığıyla otomatik eşleşir.
-- **Plan oluştur:** Derslerini, zorlandığın dersleri, günlük saatini ve günlerini seç; sana göre haftalık plan hazırlansın. Yapay zekâ gerekmez.
+- **Kişiye özel program:** Derslerdeki seviyeni, hafta içi ve hafta sonu boş zamanını, dershane günlerini ve deneme sayısını seç. Yanlış defterin ve son haftalarda bitirdiğin konular da hesaba katılır; yapay zekâ programı neden böyle kurduğunu da anlatır. Yapay zekâsız Hızlı plan da aynı bilgileri kullanır.
+- **Soru sor:** Asistan'da Mürek'e yazıyla ya da sorunun fotoğrafını çekerek soru sor; çözüm adım adım, yazılırken ekrana akar.
 - **Kitaplık:** Hazır YKS konu özetleri (konu anlatımı, formüller, kavramlar, sık yapılan hatalar, çözümlü sorular). Türkçe karakter yazmadan arayabilirsin.
 - **Odak:** Odak ve mola sayacı (25/5 ya da kendi sürelerin), kronometre, son 7 günün odak grafiği. Sayaç ve kronometre hesapta durur; telefonda ve bilgisayarda aynı anda akar.
 - **Laboratuvar:** Konulara bağlı 20 dokunmatik deney ve animasyon. Fizik (kaldırma kuvveti, sıvı, katı ve gaz basıncı, enerjinin korunumu, ısı alışverişi, yoğunluk), kimya (maddenin halleri, iyonik ve kovalent bağ, molekül şekilleri, periyodik sistem, zayıf etkileşimler), biyoloji (enzimler), matematik (mutlak değer, EBOB-EKOK, denklem terazisi, kesirler, asal sayı kalburu) ve geometri (Pisagor ve Öklid, üçgende açılar ve açıortay). Konu özetinin başında ve Mürek'in günlük mesajında o konunun deneyi çıkar.
@@ -24,11 +25,13 @@ Geliştiren: **Esat Taha Polat** ([@tahap0l](https://github.com/tahap0l))
 - **PDF:** Tek konuyu ya da haftanın programını konu özetleriyle birlikte A4 PDF olarak indir.
 - **Profil:** Ad, alan, hedef, sınav tarihi, şehir, renk teması, dershane üyelikleri, hesabı silme.
 
-## Yapay zekâ (isteğe bağlı, API anahtarı yok)
+## Yapay zekâ (API anahtarı yok)
 
-Uygulama yapay zekâ olmadan da tam çalışır. İstersen şu üç yoldan biriyle kişiye özel program ve yeni konu özetleri hazırlatabilirsin:
+Varsayılan olarak **Ders Özetim yapay zekâsı** kullanılır: model sitenin kendi sunucusunda, Cloudflare Workers AI üzerinde çalışır (Google Gemma 4). Öğrenci hiçbir şey indirmez, kurmaz, anahtar girmez; hesabıyla giriş yapması yeter. Fotoğraflı soru çözer. Her öğrencinin günlük 60 kullanım hakkı vardır (fotoğraflı ve adım adım çözümler 2-3 hak sayılır). Kod: `functions/api/ai.js`, kota: `supabase/migrations/0006_ai_usage.sql`, bağlantı: `wrangler.toml`.
 
-1. **Tarayıcının içinde (WebLLM):** Model cihazının ekran kartında çalışır. Kurulum ve anahtar yok; ilk seferde model indirilir (birkaç GB), sonra internetsiz çalışır. Chrome, Edge ya da iOS 26 ve sonrası Safari gerekir.
+Ayarlar > Gelişmiş seçeneklerde şunlar da var:
+
+1. **Tarayıcının içinde (WebLLM):** Model cihazın ekran kartında çalışır; ilk seferde birkaç GB indirilir. Güçlü bilgisayarlar içindir, çoğu telefonda çalışmaz.
 2. **Ollama:** Bilgisayarına ücretsiz [Ollama](https://ollama.com) kurduysan onun modellerini kullanır. Siteye izin vermek için Ollama'yı `OLLAMA_ORIGINS="https://senin-adresin" ollama serve` ile başlat.
 3. **Başka bir yapay zekâ:** Uygulama hazır bir metin verir; ChatGPT, Gemini, Copilot ya da Claude'un ücretsiz sürümüne yapıştırıp yanıtı geri yapıştırırsın.
 
@@ -89,7 +92,10 @@ app/js/sims-*.js           fizik, kimya-biyoloji, matematik-geometri deneyleri
 app/js/admin.js            yönetici paneli
 app/js/motivation.js       renk temaları, rozetler, günün sözü, hedefler
 app/js/app.js              arayüz ve sayfalar
-app/js/ai.js               WebLLM, Ollama ve Claude bağlantısı, istemler
+app/js/ai.js               sunucu yapay zekâsı, WebLLM, Ollama ve Claude bağlantısı, istemler
+app/js/chat.js             Asistan > Soru sor (yazılı ve fotoğraflı soru)
+app/js/plan.js             kişiye özel haftalık program
+functions/api/ai.js        Cloudflare Workers AI'a giden sunucu fonksiyonu
 app/js/llm-worker.js       modeli arka planda çalıştıran işçi
 app/js/pdf.js              PDF oluşturma
 app/data/library.json      konu özetleri kitaplığı

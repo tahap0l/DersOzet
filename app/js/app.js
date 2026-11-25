@@ -61,6 +61,7 @@ const TABS = [
   { id: 'odak', label: 'Odak', icon: I.timer },
   { id: 'defter', label: 'Defter', icon: I.notebook },
   { id: 'kitaplik', label: 'Kitaplık', icon: I.book, rail: true },
+  { id: 'asistan', label: 'Asistan', icon: I.spark, rail: true },
   { id: 'lab', label: 'Laboratuvar', icon: I.flask, rail: true },
   { id: 'dershane', label: 'Dershane', icon: I.school, rail: true },
   { id: 'medya', label: 'Müzik ve video', icon: I.music, rail: true },
@@ -262,11 +263,19 @@ function libraryList(){
   return Object.keys(groups).map(sj => `<section class="lgroup"><h2 class="lg-h">${chip(sj || 'Genel')}<span class="hint">${groups[sj].length}</span></h2>
     <ul class="tlist">${groups[sj].map(t => `<li><a class="trow" href="#/konu/${encodeURIComponent(t.slug)}" style="--c:${subjColor(t.subject)}"><span class="tdot" aria-hidden="true"></span><span class="tname">${esc(t.name)}</span>${t.mine ? '<span class="tag">Senin</span>' : ''}${I.next}</a></li>`).join('')}</ul></section>`).join('');
 }
+function mySumsHTML(){
+  const mine = Object.values(DB.d.userSums).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  if (!mine.length) return `<div class="my-sums empty-mini"><p>Kitaplıkta olmayan bir konu mu var? Yapay zekâ senin için özet çıkarsın.</p><a class="btn sm primary" href="#/asistan/ozet">${I.spark}Özet çıkar</a></div>`;
+  return `<section class="block my-sums"><div class="block-head"><h2>Senin özetlerin</h2><a class="btn sm" href="#/asistan/ozet">${I.spark}Yeni özet</a></div>
+    <ul class="tlist">${mine.slice(0, ui.allMine ? 200 : 5).map(t => `<li><a class="trow" href="#/konu/${encodeURIComponent(t.slug)}" style="--c:${subjColor(t.subject)}"><span class="tdot" aria-hidden="true"></span><span class="tname">${esc(t.name)}${t.subject ? ` <span class="hint">${esc(t.subject)}</span>` : ''}</span>${I.next}</a></li>`).join('')}</ul>
+    ${mine.length > 5 && !ui.allMine ? `<button class="link sm" data-act="all-mine">Hepsini göster (${mine.length})</button>` : ''}</section>`;
+}
 function libraryView(){
   const all = allTopics();
   const subs = SUBJ_ORDER.filter(s => all.some(t => t.subject === s));
   return `
   ${Cloud.uid && !matchMedia('(min-width: 900px)').matches ? '<header class="page-head"><h1>Defter</h1></header>' + defterSeg('kitaplik') + `<p class="sub">${all.length} konu özeti</p>` : `<header class="page-head"><h1>Kitaplık</h1><p class="sub">${all.length} konu özeti</p></header>`}
+  ${ENV === 'artifact' ? '' : mySumsHTML()}
   <div class="search"><input id="lib-q" type="search" inputmode="search" placeholder="Konu ara: basınç, paragraf, hücre" value="${esc(ui.libQ)}" aria-label="Konu ara" autocomplete="off"></div>
   <div class="chips-row" role="group" aria-label="Ders filtresi">
     <button class="fchip${!ui.libS ? ' on' : ''}" data-act="lib-s" data-s="">Tümü</button>
@@ -284,6 +293,7 @@ function topicView(){
   return `<header class="page-head slim"><button class="back" data-act="back">${I.back}Geri</button>
     <div class="row"><button class="btn sm" data-act="topic-pdf">PDF indir</button>${mine ? '<button class="btn sm danger" data-act="topic-del">Sil</button>' : ''}</div></header>
     ${typeof simLinksHTML === 'function' ? simLinksHTML(slug) : ''}
+    <div class="ask-topic"><button class="btn sm" data-act="ask-topic" data-n="${esc(sd.name || '')}">${I.chat}Bu konuda takıldığın yeri Mürek'e sor</button></div>
     <div class="reader">${topicDocHTML(tp, Object.assign({ mine }, sd), false)}</div>`;
 }
 
@@ -440,59 +450,30 @@ function profileView(){
 }
 
 /* ---------- Yapay zekâ asistanı ---------- */
-function planDefaults(){
-  return { subjects: TRACKS[DB.d.profile.track].subjects.slice(), weak: [], hours: 4, days: [0, 1, 2, 3, 4, 5], next: false, note: '' };
-}
 function assistantView(){
-  const [tab, rest] = (() => { const a = route.arg || 'plan'; const i = a.indexOf('/'); return i < 0 ? [a, ''] : [a.slice(0, i), a.slice(i + 1)]; })();
-  const seg = `<div class="seg" role="tablist">${[['plan', 'Program oluştur'], ['ozet', 'Konu özeti'], ['ayar', 'Ayarlar']].map(([k, n]) => `<a class="seg-b${tab === k ? ' on' : ''}" href="#/asistan/${k}" role="tab" aria-selected="${tab === k}">${n}</a>`).join('')}</div>`;
-  const eng = `<div class="engine"><span class="eng-dot${AI.ready() ? ' on' : ''}" aria-hidden="true"></span><span>Yapay zekâ: <strong>${esc(AI.label())}</strong></span>${tab !== 'ayar' ? '<a href="#/asistan/ayar">Değiştir</a>' : ''}</div>`;
+  const [tab, rest] = (() => { const a = route.arg || 'sor'; const i = a.indexOf('/'); return i < 0 ? [a, ''] : [a.slice(0, i), a.slice(i + 1)]; })();
+  const seg = `<div class="seg" role="tablist">${[['sor', 'Soru sor'], ['plan', 'Program'], ['ozet', 'Özet'], ['ayar', 'Ayarlar']].map(([k, n]) => `<a class="seg-b${tab === k ? ' on' : ''}" href="#/asistan/${k}" role="tab" aria-selected="${tab === k}">${n}</a>`).join('')}</div>`;
+  const eng = tab === 'sor' || DB.d.ai.engine === 'bulut' && tab !== 'ayar' ? '' : `<div class="engine"><span class="eng-dot${AI.ready() ? ' on' : ''}" aria-hidden="true"></span><span>Yapay zekâ: <strong>${esc(AI.label())}</strong></span>${tab !== 'ayar' ? '<a href="#/asistan/ayar">Değiştir</a>' : ''}</div>`;
   let body = '';
   if (tab === 'ayar') body = aiSettingsHTML();
   else if (tab === 'ozet') body = summaryFormHTML(rest);
-  else body = planFormHTML();
+  else if (tab === 'plan') body = planFormHTML();
+  else body = askHTML();
   return `<header class="page-head slim"><button class="back" data-act="back">${I.back}Geri</button></header>
     <h1 class="page-title">${I.spark}Asistan</h1>${seg}${eng}${body}`;
 }
-function planFormHTML(){
-  const P = ui.plan = ui.plan || planDefaults();
-  const subs = SUBJ_ORDER.filter(s => s !== 'Edebiyat' || DB.d.profile.track !== 'SAY');
-  const busy = ui.busy ? `<div class="progress"><span class="spinner" aria-hidden="true"></span><span id="ai-prog">${esc(ui.busyText || 'Hazırlanıyor…')}</span></div>` : '';
-  const draft = ui.planDraft;
-  return `
-  <section class="block">
-    <h2 class="f-h">Hangi dersleri çalışacaksın?</h2>
-    <div class="chips-row wrap">${subs.map(s => `<button class="fchip${P.subjects.includes(s) ? ' on' : ''}" data-act="pl-subj" data-s="${esc(s)}" style="--c:${subjColor(s)}">${esc(s)}</button>`).join('')}</div>
-    <h2 class="f-h">Hangilerinde zorlanıyorsun?</h2>
-    <div class="chips-row wrap">${P.subjects.map(s => `<button class="fchip${P.weak.includes(s) ? ' on' : ''}" data-act="pl-weak" data-s="${esc(s)}" style="--c:${subjColor(s)}">${esc(s)}</button>`).join('') || '<p class="hint">Önce ders seç.</p>'}</div>
-    <h2 class="f-h">Günde kaç saat? <strong id="pl-h-v">${P.hours} saat</strong></h2>
-    <input id="pl-hours" type="range" min="1" max="10" step="1" value="${P.hours}" aria-label="Günlük çalışma saati">
-    <h2 class="f-h">Hangi günler?</h2>
-    <div class="chips-row">${DAYS_S.map((d, i) => `<button class="fchip${P.days.includes(i) ? ' on' : ''}" data-act="pl-day" data-i="${i}">${d}</button>`).join('')}</div>
-    <h2 class="f-h">Hangi hafta?</h2>
-    <div class="seg small"><button class="seg-b${!P.next ? ' on' : ''}" data-act="pl-week" data-v="0">Bu hafta</button><button class="seg-b${P.next ? ' on' : ''}" data-act="pl-week" data-v="1">Gelecek hafta</button></div>
-    <label class="f-h" for="pl-note">Yapay zekâya notun (isteğe bağlı)</label>
-    <textarea id="pl-note" rows="2" placeholder="Örn. Salı akşamları dershanem var, fizikte yeni konulara geçtik">${esc(P.note)}</textarea>
-    <div class="row stack">
-      <button class="btn primary" data-act="pl-quick">Hızlı plan oluştur</button>
-      <button class="btn" data-act="pl-ai"${ui.busy ? ' disabled' : ''}>${I.spark}Yapay zekâyla oluştur</button>
-      <button class="link" data-act="pl-ext">Başka bir yapay zekâda oluştur</button>
-    </div>
-    <p class="hint">Hızlı plan internetsiz ve anında çalışır: derslerini konu kitaplığındaki sıraya göre günlere dağıtır. Yapay zekâ notunu da dikkate alır.</p>
-    ${busy}
-  </section>
-  ${draft ? `<section class="block draft">
-    <div class="block-head"><h2>Önerilen plan</h2><span class="hint">${draft.length} görev</span></div>
-    ${[0, 1, 2, 3, 4, 5, 6].map(di => { const ts = draft.map((t, i) => Object.assign({ i }, t)).filter(t => t.day === di); return ts.length ? `<h3 class="d-day">${DAYS[di]}</h3><ul class="dlist">${ts.map(t => `<li style="--c:${subjColor(t.subject)}">${chip(t.subject)}<span>${esc(t.text)}</span><button class="icon-btn ghost sm" data-act="pl-rm" data-i="${t.i}" aria-label="Bu görevi çıkar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></li>`).join('')}</ul>` : ''; }).join('')}
-    <div class="row"><button class="btn primary" data-act="pl-add">Programa ekle</button><button class="btn" data-act="pl-clear">Vazgeç</button></div>
-  </section>` : ''}`;
-}
+assistantView.after = () => {
+  const a = route.arg || 'sor';
+  if (a === 'sor' || a.startsWith('sor/')) askAfter();
+  if (a === 'plan' && Cloud.uid && typeof NT !== 'undefined' && !NT.list && !ui.ntTried){ ui.ntTried = true; ntLoad().then(() => { if (route.page === 'asistan' && (route.arg || '') === 'plan' && !ui.busy){ ui.plan = null; render(); } }); }
+};
 function summaryFormHTML(rest){
   let subj = '', name = '';
   if (rest){ const i = rest.indexOf('|'); if (i >= 0){ subj = rest.slice(0, i); name = rest.slice(i + 1); } else name = rest; }
+  else if (ui.smDraft){ subj = ui.smDraft.subj; name = ui.smDraft.name; }
   const busy = ui.busy ? `<div class="progress"><span class="spinner" aria-hidden="true"></span><span id="ai-prog">${esc(ui.busyText || 'Hazırlanıyor…')}</span></div>` : '';
   return `<section class="block">
-    <p class="hint">Kitaplıkta olmayan bir konunun özetini hazırla. Özet bu cihazda saklanır ve Kitaplık'ta “Senin” etiketiyle görünür.</p>
+    <p class="hint">Bir dersin herhangi bir konusu için yapay zekâ sana özet çıkarsın: konu anlatımı, formüller, kavramlar, sık yapılan hatalar ve örnek sorular.</p>
     <label class="f-h" for="sm-s">Ders</label>
     <select id="sm-s"><option value="">Seç</option>${SUBJ_ORDER.map(s => `<option${s === subj ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select>
     <label class="f-h" for="sm-n">Konu</label>
@@ -501,8 +482,10 @@ function summaryFormHTML(rest){
       <button class="btn primary" data-act="sm-ai"${ui.busy ? ' disabled' : ''}>${I.spark}Yapay zekâyla özet çıkar</button>
       <button class="link" data-act="sm-ext">Başka bir yapay zekâda hazırla</button>
     </div>
+    <p class="hint">Hazırlanması 20-40 saniye sürer. Özet hesabına kaydedilir; Defter > Özetler'in en üstünde, “Senin özetlerin” bölümünde bulursun.</p>
     ${busy}
-  </section>`;
+  </section>
+  ${Object.keys(DB.d.userSums).length ? mySumsHTML() : ''}`;
 }
 function aiSettingsHTML(){
   const c = DB.d.ai, gpu = AI.hasWebGPU();
@@ -518,10 +501,16 @@ function aiSettingsHTML(){
   return `<section class="block">
     <h2 class="f-h">Yapay zekâyı nerede çalıştıralım?</h2>
     <div class="opts">
+      ${radio('bulut', 'Ders Özetim yapay zekâsı (önerilen)', 'Sitenin kendi sunucusunda çalışır. İndirme, kurulum ve API anahtarı yok; telefonda, tablette ve bilgisayarda çalışır. Fotoğraflı soru da sorabilirsin.' + (AI.quota ? ' ' + AI.quotaText() + '.' : ' Her öğrencinin günlük bir kullanım hakkı vardır.'))}
+    </div>
+    <details class="adv"${c.engine === 'webllm' || c.engine === 'ollama' || c.engine === 'off' ? ' open' : ''}><summary>Gelişmiş seçenekler</summary>
+    <div class="opts">
       ${radio('off', 'Kapalı', 'Hızlı plan ve hazır özetler yine çalışır. Dilersen hazır metni başka bir yapay zekâya yapıştırabilirsin.')}
       ${radio('webllm', 'Bu cihazda, tarayıcının içinde', gpu ? 'Kurulum ve API anahtarı yok. Model ilk seferde indirilir, sonra internetsiz de çalışır.' : 'Bu tarayıcı WebGPU desteklemiyor. Chrome, Edge ya da iOS 26 ve sonrası Safari gerekir.')}
       ${radio('ollama', 'Ollama ile bilgisayarımda', 'Bilgisayarına ücretsiz Ollama kurduysan onun modellerini kullanır. Telefonda çalışmaz.')}
     </div>
+    <p class="hint">Bu seçenekler güçlü bilgisayarlar içindir. Tarayıcıdaki model birkaç GB indirir ve çoğu telefonda çalışmaz.</p>
+    </details>
   </section>
   ${c.engine === 'webllm' ? `<section class="block">
     <h2 class="f-h">Model</h2>
@@ -656,7 +645,7 @@ function renderNav(show){
   document.body.classList.toggle('has-nav', !!show);
   if (!show){ nav.hidden = true; return; }
   nav.hidden = false;
-  const active = route.page === 'konu' ? 'kitaplik' : route.page === 'oda' ? 'odalar' : /^(yanlis|not|tekrar)$/.test(route.page) ? 'defter' : route.page === 'kur' ? 'profil' : route.page === 'asistan' ? '' : route.page;
+  const active = route.page === 'konu' ? 'kitaplik' : route.page === 'oda' ? 'odalar' : /^(yanlis|not|tekrar)$/.test(route.page) ? 'defter' : route.page === 'kur' ? 'profil' : route.page;
   const wide = matchMedia('(min-width: 900px)').matches;
   const tabs = TABS.filter(t => ((t.id !== 'odalar' && t.id !== 'dershane') || Cloud.enabled) && (!t.admin || Cloud.isAdmin));
   nav.innerHTML = `<a class="rail-brand" href="#/bugun" aria-label="Ders Özetim">${mascotSVG('ok', 34)}<span>Ders Özetim</span></a>` + tabs.map(t => `<a class="tab${t.rail ? ' rail-only' : ''}${active === t.id || (!wide && t.id === 'defter' && (active === 'kitaplik' || active === 'lab')) ? ' on' : ''}" href="#/${t.id}"${active === t.id ? ' aria-current="page"' : ''}>${t.icon}<span>${t.label}</span>${t.id === 'odak' ? '<span class="tab-b" id="tab-odak-b" hidden></span>' : ''}</a>`).join('');
@@ -838,17 +827,19 @@ function progressCb(p){
   setBusy(true, t || 'Model hazırlanıyor…');
   const m = $('#ai-meter'); if (m && typeof p.progress === 'number') m.style.width = Math.round(p.progress * 100) + '%';
 }
-async function aiRun(prompt, onDone){
-  if (!AI.ready()){ toast('Önce yapay zekâyı seç: Asistan > Ayarlar.'); go('#/asistan/ayar'); return; }
-  setBusy(true, DB.d.ai.engine === 'webllm' && !AI.loadedModel ? 'Model hazırlanıyor; ilk seferde indirme sürebilir…' : 'Yanıt yazılıyor…'); render();
+async function aiRun(prompt, onDone, opts){
+  opts = opts || {};
+  if (!AI.ready()){ toast(DB.d.ai.engine === 'bulut' ? 'Yapay zekâyı kullanmak için hesabına giriş yap.' : 'Önce yapay zekâyı seç: Asistan > Ayarlar.'); if (DB.d.ai.engine !== 'bulut') go('#/asistan/ayar'); return; }
+  setBusy(true, DB.d.ai.engine === 'webllm' && !AI.loadedModel ? 'Model hazırlanıyor; ilk seferde indirme sürebilir…' : 'Yapay zekâ düşünüyor…'); render();
   try {
-    const txt = await AI.chat([{ role: 'user', content: prompt }], { json: true, onProgress: progressCb, onText: s => setBusy(true, 'Yanıt yazılıyor… (' + s.length + ' karakter)') });
-    setBusy(false); onDone(parseJSONLoose(txt));
+    const txt = await AI.chat([{ role: 'user', content: prompt }], { json: true, think: !!opts.think, maxTokens: opts.maxTokens || 3500, onProgress: progressCb,
+      onText: (s, th) => setBusy(true, s.length ? 'Yazıyor… (' + s.length + ' karakter)' : th ? 'Düşünüyor…' : 'Yapay zekâ düşünüyor…') });
+    setBusy(false); ui.busyFor = '';
+    const j = parseJSONLoose(txt);
+    onDone(j, txt);
   } catch(e){
     setBusy(false); ui.busyFor = ''; render();
-    const m = String(e && e.message || '');
-    if (m.startsWith('claude:')){ const code = m.slice(7); toast(code === 'rate_limited' ? 'Claude kullanım sınırına ulaşıldı. Biraz sonra tekrar dene ya da Hızlı plan kullan.' : code === 'not_granted' ? 'Claude\'a izin verilmedi. Sayfayı yenileyip izin verirsen kullanabilirsin.' : code === 'invalid_json' ? 'Claude\'ın yanıtı okunamadı. Tekrar dene.' : 'Claude yanıt veremedi. Tekrar dene.'); return; }
-    toast(m === 'nogpu' ? 'Bu tarayıcı WebGPU desteklemiyor.' : /ollama|fetch|Failed/i.test(m) ? 'Ollama\'ya bağlanılamadı. Ayarlar\'daki komutla başlattığından emin ol.' : 'Yapay zekâ yanıt veremedi. Tekrar dene.');
+    toast(aiErrText(e));
   }
 }
 function extSheet(title, prompt, onImport){
@@ -870,11 +861,6 @@ function extSheet(title, prompt, onImport){
     if (!j || !onImport(j)){ $('#ex-e', box).textContent = 'Yanıtta beklenen yapıyı bulamadım. Yanıtın tamamını, süslü parantezlerle birlikte yapıştır.'; return; }
     closeSheet();
   });
-}
-function planOptions(){
-  const P = ui.plan;
-  const n = $('#pl-note'); if (n) P.note = n.value.trim();
-  return { subjects: P.subjects, weak: P.weak.filter(s => P.subjects.includes(s)), hours: P.hours, days: P.days, note: P.note };
 }
 function acceptPlan(list){
   const idx = libIndex();
@@ -1039,30 +1025,26 @@ const ACT = {
     if (el.dataset.armed !== '1'){ el.dataset.armed = '1'; el.querySelector('span').textContent = 'Her şey silinecek. Emin misin? Tekrar bas'; return; }
     localStorage.removeItem(DB.KEY); localStorage.removeItem('dersozetim.wx'); DB.load(); DB.save(); applyTheme(); go('#/bugun'); toast('Tüm veriler silindi');
   },
-  'pl-subj': el => { const P = ui.plan, s = el.dataset.s; P.subjects = P.subjects.includes(s) ? P.subjects.filter(x => x !== s) : P.subjects.concat([s]); planOptions(); render(); },
-  'pl-weak': el => { const P = ui.plan, s = el.dataset.s; P.weak = P.weak.includes(s) ? P.weak.filter(x => x !== s) : P.weak.concat([s]); planOptions(); render(); },
-  'pl-day': el => { const P = ui.plan, i = Number(el.dataset.i); P.days = P.days.includes(i) ? P.days.filter(x => x !== i) : P.days.concat([i]); planOptions(); render(); },
-  'pl-week': el => { ui.plan.next = el.dataset.v === '1'; planOptions(); render(); },
-  'pl-quick': () => { const o = planOptions(); if (!o.subjects.length || !o.days.length){ toast('En az bir ders ve bir gün seç.'); return; } acceptPlan(quickPlan(o)); },
-  'pl-ai': () => { const o = planOptions(); if (!o.subjects.length || !o.days.length){ toast('En az bir ders ve bir gün seç.'); return; } aiRun(planPrompt(o), j => { const list = planFromJSON(j); if (!list){ render(); toast('Yapay zekâ geçerli bir plan yazamadı. Tekrar dene ya da Hızlı plan kullan.'); return; } acceptPlan(list); }); },
-  'pl-ext': () => { const o = planOptions(); if (!o.subjects.length || !o.days.length){ toast('En az bir ders ve bir gün seç.'); return; } extSheet('Başka bir yapay zekâda oluştur', planPrompt(o), j => { const list = planFromJSON(j); if (!list) return false; acceptPlan(list); return true; }); },
+  'ask-topic': el => { ui.askDraft = el.dataset.n + ' konusunda anlamadığım yer: '; go('#/asistan/sor'); },
+  'all-mine': () => { ui.allMine = true; render(); },
   'pl-rm': el => { ui.planDraft.splice(Number(el.dataset.i), 1); if (!ui.planDraft.length) ui.planDraft = null; render(); },
-  'pl-clear': () => { ui.planDraft = null; render(); },
+  'pl-clear': () => { ui.planDraft = null; ui.planWhy = ''; render(); },
   'pl-add': () => {
     const wk = ui.plan.next ? wkKey(addDays(fromKey(thisWeek()), 7)) : thisWeek();
     const w = DB.ensureWeek(wk);
     ui.planDraft.forEach(t => w.tasks.push({ id: 'p' + uid(), day: t.day, text: t.text, label: t.text, type: guessTask(t.text).type, subject: t.subject, topic: t.topic, done: false, src: 'plan' }));
-    const n = ui.planDraft.length; ui.planDraft = null; DB.d.stats.plans = (DB.d.stats.plans || 0) + 1; DB.save();
+    const n = ui.planDraft.length; ui.planDraft = null; ui.planWhy = ''; DB.d.stats.plans = (DB.d.stats.plans || 0) + 1; DB.save();
     ui.week = wk; ui.day = wk === thisWeek() ? todayIdx() : 0; go('#/program'); toast(n + ' görev programa eklendi');
   },
   'sm-ai': () => {
     const subj = $('#sm-s').value, name = titleCase($('#sm-n').value.trim());
     if (!name){ toast('Konu adını yaz.'); return; }
+    ui.smDraft = { subj, name };
     aiRun(summaryPrompt(subj, name), j => {
       const s = normalizeSummary(j);
       if (!s){ render(); toast('Yapay zekâ geçerli bir özet yazamadı. Tekrar dene.'); return; }
-      go('#/konu/' + encodeURIComponent(saveSummary(subj, name, s, 'yerel-yz')));
-      toast('Özet hazır ve Kitaplık\'a eklendi');
+      go('#/konu/' + encodeURIComponent(saveSummary(subj, name, s, DB.d.ai.engine === 'bulut' ? 'bulut-yz' : 'yerel-yz')));
+      toast('Özet hazır. Defter > Özetler\'de “Senin özetlerin” altında duruyor.');
     });
   },
   'wk-ai': () => {
@@ -1087,7 +1069,7 @@ const ACT = {
     if (!name){ toast('Konu adını yaz.'); return; }
     extSheet('Başka bir yapay zekâda hazırla', summaryPrompt(subj, name), j => { const s = normalizeSummary(j); if (!s) return false; go('#/konu/' + encodeURIComponent(saveSummary(subj, name, s, 'dis-yz'))); toast('Özet Kitaplık\'a eklendi'); return true; });
   },
-  'ai-eng': el => { DB.d.ai.engine = el.value; DB.d.ai.chosen = true; DB.save(); render(); },
+  'ai-eng': el => { DB.d.ai.engine = el.value; DB.d.ai.chosen = true; DB.save(); if (el.value === 'bulut') AI.refreshQuota().then(() => render()); render(); },
   'ai-model': el => { DB.d.ai.model = el.value; DB.save(); render(); },
   'ai-load': async () => {
     setBusy(true, 'Model hazırlanıyor…'); render();
@@ -1133,8 +1115,6 @@ document.addEventListener('change', e => {
 });
 document.addEventListener('input', e => {
   if (e.target.id === 'lib-q'){ ui.libQ = e.target.value; const l = $('#lib-list'); if (l) l.innerHTML = libraryList(); }
-  if (e.target.id === 'pl-hours'){ ui.plan.hours = Number(e.target.value); const v = $('#pl-h-v'); if (v) v.textContent = ui.plan.hours + ' saat'; }
-  if (e.target.id === 'pl-note' && ui.plan){ ui.plan.note = e.target.value; }
 });
 window.addEventListener('hashchange', () => {
   parseRoute(); closeSheet();

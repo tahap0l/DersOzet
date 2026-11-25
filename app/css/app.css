@@ -818,3 +818,72 @@ a.seg-b{text-decoration:none;color:inherit;display:flex;align-items:center;justi
 .sim-links .focus-cta{background:var(--c,var(--brand-soft));color:var(--chip-ink)}
 .sim-links .fc-ic{background:rgba(255,255,255,.45)}
 @media (min-width:900px){ .sim-page .sim-ctl{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))} }
+
+/* ---------- Asistan: Soru sor ---------- */
+.ask{display:flex;flex-direction:column;gap:10px;min-height:calc(100dvh - 300px)}
+.ask-top{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:24px}
+.ch-log{display:flex;flex-direction:column;gap:14px;flex:1;padding-bottom:6px}
+.ch-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:18px 6px;background:var(--surface);border-radius:var(--r-card);box-shadow:var(--shadow)}
+.ch-empty p{margin:0;max-width:46ch;line-height:1.5}
+.ch-sugs{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:4px}
+.ch-sugs .fchip{min-height:40px;text-align:left}
+.ch-msg{display:flex;gap:8px;max-width:100%;min-width:0}
+.ch-msg.user{align-self:flex-end;flex-direction:column;align-items:flex-end;max-width:86%}
+.ch-msg.user p{margin:0;background:var(--brand);color:var(--brand-ink);padding:10px 14px;border-radius:18px 18px 6px 18px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45}
+.ch-thumb{max-width:220px;max-height:260px;border-radius:14px;margin-bottom:6px;border:1px solid var(--line);object-fit:cover}
+.ch-msg.bot{align-self:flex-start;max-width:100%}
+.ch-av{flex:none;width:30px;height:30px;margin-top:2px}
+.ch-b{min-width:0;flex:1;background:var(--surface);border-radius:6px 18px 18px 18px;padding:10px 14px;box-shadow:var(--shadow);line-height:1.55;overflow-wrap:anywhere}
+.ch-b p{margin:0 0 8px}
+.ch-b p:last-child{margin-bottom:0}
+.ch-b ul,.ch-b ol{margin:4px 0 10px;padding-left:22px}
+.ch-b li{margin:3px 0}
+.ch-b h4{margin:10px 0 4px;font-size:15.5px}
+.ch-b code{background:var(--surface-2);padding:1px 5px;border-radius:6px;font-size:.95em}
+.ch-b strong{font-weight:800}
+.ch-wait{display:flex;align-items:center;gap:8px;color:var(--ink-2);font-weight:700}
+.ch-acts{display:flex;gap:12px;margin-top:6px}
+.ch-form{position:sticky;bottom:calc(env(safe-area-inset-bottom,0px) + 74px);z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:8px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:6px}
+@media (min-width:900px){ .ch-form{bottom:16px} }
+.ch-row{display:flex;align-items:flex-end;gap:6px}
+.ch-row textarea{flex:1;min-width:0;resize:none;border:0;background:transparent;color:var(--ink);font:inherit;font-size:16px;line-height:1.4;padding:9px 6px;max-height:180px;outline:none}
+.ch-form:focus-within{border-color:var(--brand)}
+.ch-cam{flex:none;cursor:pointer;width:42px;height:42px}
+.ch-send{flex:none;width:44px;height:44px;padding:0;border-radius:14px;display:grid;place-items:center}
+.ch-send svg{width:20px;height:20px}
+.ch-think{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;padding:0 6px 2px;cursor:pointer;flex-wrap:wrap}
+.ch-think input{width:18px;height:18px;accent-color:var(--brand)}
+.ch-pic{position:relative;align-self:flex-start}
+.ch-pic img{display:block;max-height:120px;max-width:180px;border-radius:12px;border:1px solid var(--line)}
+.ch-pic .icon-btn{position:absolute;top:-8px;right:-8px;background:var(--surface);border:1px solid var(--line);border-radius:50%}
+.ask-topic{margin:0 0 14px}
+.ask-topic .btn svg{width:18px;height:18px}
+
+/* ---------- Asistan: kişiye özel program ---------- */
+.pm-lead{margin:0 0 10px;font-weight:700}
+.pm-facts{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
+.pm-subs{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:8px}
+.pm-subs li{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 10px;border-radius:14px;background:var(--surface-2);border-left:4px solid transparent}
+.pm-subs li.on{background:var(--surface);border-left-color:var(--c,var(--brand));box-shadow:var(--shadow)}
+.pm-s{display:flex;align-items:center;gap:10px;background:none;border:0;color:var(--ink);font:inherit;text-align:left;cursor:pointer;padding:4px 0;min-width:0;flex:1 1 120px}
+.pm-s strong{display:block}
+.pm-s .hint{display:block;font-size:12.5px}
+.pm-box{flex:none;width:24px;height:24px;border-radius:8px;border:2px solid var(--line);display:grid;place-items:center;font-weight:900;font-size:14px;color:var(--brand-ink)}
+li.on .pm-box{background:var(--c,var(--brand));border-color:var(--c,var(--brand));color:#1a1530}
+.pm-lv{margin:0;flex:none}
+.pm-lv .seg-b{padding:6px 10px;min-height:34px;font-size:13.5px}
+.pm-range{display:grid;grid-template-columns:90px 1fr 70px;align-items:center;gap:10px;font-weight:700;margin:6px 0}
+.pm-range input{width:100%;accent-color:var(--brand)}
+.pm-range strong{text-align:right;font-variant-numeric:tabular-nums}
+.pm-why{display:flex;gap:10px;align-items:flex-start;background:var(--brand-soft);border-radius:16px;padding:12px;margin:0 0 12px}
+.pm-why p{margin:0;line-height:1.5}
+.fchip[disabled]{opacity:.4;cursor:not-allowed}
+
+/* ---------- Özetler: senin özetlerin ---------- */
+.my-sums{margin-bottom:14px}
+.my-sums .tname .hint{font-weight:600;font-size:12.5px}
+.empty-mini{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--surface);border-radius:16px;padding:12px 14px;box-shadow:var(--shadow)}
+.empty-mini p{margin:0;flex:1 1 220px}
+details.adv{margin-top:12px}
+details.adv summary{cursor:pointer;font-weight:800;color:var(--ink-2);padding:6px 0}
+details.adv .opts{margin-top:8px}

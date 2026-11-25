@@ -1,6 +1,8 @@
 /*!
  * Ders Özetim — Copyright (C) 2026 Esat Taha Polat — AGPL-3.0
  * ai.js: API anahtarı gerektirmeyen yapay zekâ motorları.
+ *   - Bulut (varsayılan): sitenin kendi sunucusundaki model (functions/api/ai.js, Cloudflare Workers AI).
+ *     Giriş yapan herkes kullanır; anahtar, kurulum, indirme yok. Günlük kullanım hakkı vardır.
  *   - WebLLM: model tarayıcıda, cihazın kendi ekran kartında çalışır (WebGPU). Kurulum ve anahtar yok.
  *   - Ollama: bilgisayarına kurduğun ücretsiz yerel model sunucusu.
  *   - Dışarıdan yapıştır: hazır metni herhangi bir sohbet botuna verip yanıtı geri yapıştırırsın.
@@ -15,11 +17,12 @@ const AI_MODELS = [
 ];
 
 const AI = {
-  engine: null, loadedModel: '', status: 'idle', progress: '', worker: null,
+  engine: null, loadedModel: '', status: 'idle', progress: '', worker: null, quota: null,
   hasWebGPU(){ return typeof navigator !== 'undefined' && !!navigator.gpu; },
-  ready(){ const c = DB.d.ai; return c.engine === 'claude' ? !!CAP.sample : c.engine === 'ollama' ? !!c.ollamaModel : c.engine === 'webllm' ? this.hasWebGPU() : false; },
+  ready(){ const c = DB.d.ai; return c.engine === 'bulut' ? !!Cloud.uid : c.engine === 'claude' ? !!CAP.sample : c.engine === 'ollama' ? !!c.ollamaModel : c.engine === 'webllm' ? this.hasWebGPU() : false; },
   label(){
     const c = DB.d.ai;
+    if (c.engine === 'bulut') return 'Ders Özetim yapay zekâsı';
     if (c.engine === 'webllm'){ const m = AI_MODELS.find(x => x.id === c.model); return 'Tarayıcıda: ' + (m ? m.name + ' model' : c.model); }
     if (c.engine === 'ollama') return 'Ollama: ' + (c.ollamaModel || 'model seçilmedi');
     if (c.engine === 'claude') return CAP.sample ? 'Claude (kendi hesabınla)' : 'Claude (bu görünümde kullanılamıyor)';
@@ -56,9 +59,57 @@ const AI = {
     return (j.models || []).map(m => m.name);
   },
 
+  async refreshQuota(){
+    if (!Cloud.uid) return null;
+    try { this.quota = await Cloud.rpc('ai_left'); } catch(e){}
+    return this.quota;
+  },
+  quotaText(){ const q = this.quota; return q ? `Bugün ${q.limit - q.used} hakkın kaldı (${q.limit} üzerinden)` : ''; },
+
+  /* sunucudaki model; görsel ve adım adım düşünme destekler */
+  async cloud(messages, opts){
+    const tok = await Cloud.token();
+    if (!tok) throw new Error('cloud:not_signed_in');
+    let r;
+    try {
+      r = await fetch(new URL('/api/ai', location.origin), { method: 'POST', signal: opts.signal,
+        headers: { 'content-type': 'application/json', Authorization: 'Bearer ' + tok },
+        body: JSON.stringify({ messages, think: !!opts.think, maxTokens: opts.maxTokens || 1800, stream: !!opts.onText }) });
+    } catch(e){ if (e && e.name === 'AbortError') throw e; throw new Error('cloud:offline'); }
+    const used = r.headers.get('x-ai-used'), lim = r.headers.get('x-ai-limit');
+    if (used && lim) this.quota = { used: Number(used), limit: Number(lim) };
+    if (!r.ok){
+      let j = {}; try { j = await r.json(); } catch(e){}
+      if (j.error === 'quota' && j.limit) this.quota = { used: j.used, limit: j.limit };
+      throw new Error('cloud:' + (j.error || ('http' + r.status)));
+    }
+    if (!opts.onText){ const j = await r.json(); return stripThink(j.text || ''); }
+    const rd = r.body.getReader(), dec = new TextDecoder();
+    let buf = '', txt = '', thinking = 0;
+    for (;;){
+      const { value, done } = await rd.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0){
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (!data || data === '[DONE]') continue;
+        let j; try { j = JSON.parse(data); } catch(e){ continue; }
+        const ch = j.choices && j.choices[0], d = ch && (ch.delta || ch.message) || {};
+        const piece = typeof j.response === 'string' ? j.response : (d.content || '');
+        if (piece){ txt += piece; opts.onText(stripThink(txt), false); }
+        else if (d.reasoning_content || d.reasoning){ thinking += String(d.reasoning_content || d.reasoning).length; opts.onText(stripThink(txt), thinking); }
+      }
+    }
+    return stripThink(txt);
+  },
+
   async chat(messages, opts){
     opts = opts || {};
     const c = DB.d.ai;
+    if (c.engine === 'bulut') return this.cloud(messages, opts);
     if (c.engine === 'webllm'){
       const eng = await this.loadWebLLM(opts.onProgress);
       const req = { messages, temperature: 0.4, max_tokens: opts.maxTokens || 1800, extra_body: { enable_thinking: false } };
@@ -93,7 +144,28 @@ const AI = {
     throw new Error('off');
   }
 };
-function stripThink(t){ return String(t || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim(); }
+function stripThink(t){ return String(t || '').replace(/<think>[\s\S]*?(<\/think>|$)/g, '').replace(/^\s+/, ''); }
+
+/* hata kodunu öğrencinin anlayacağı cümleye çevirir */
+function aiErrText(e){
+  const m = String((e && e.message) || e || '');
+  const q = AI.quota;
+  const map = {
+    'cloud:quota': 'Bugünkü yapay zekâ hakkın bitti' + (q ? ' (' + q.limit + '/' + q.limit + ')' : '') + '. Gece yarısı yenilenir.',
+    'cloud:busy_day': 'Uygulamanın bugünkü ortak yapay zekâ kotası doldu. Sabah 03.00\'te yenilenir.',
+    'cloud:busy': 'Yapay zekâ şu an çok yoğun. Birkaç saniye sonra tekrar dene.',
+    'cloud:no_ai': 'Sunucudaki yapay zekâ şu an kapalı. Biraz sonra tekrar dene.',
+    'cloud:not_signed_in': 'Yapay zekâyı kullanmak için hesabına giriş yap.',
+    'cloud:offline': 'İnternete bağlanılamadı. Bağlantını kontrol edip tekrar dene.',
+    'cloud:bad_request': 'İstek çok uzun ya da fotoğraf çok büyük. Kısaltıp tekrar dene.'
+  };
+  if (map[m]) return map[m];
+  if (m.startsWith('cloud:')) return 'Yapay zekâ yanıt veremedi. Tekrar dene.';
+  if (m.startsWith('claude:')){ const code = m.slice(7); return code === 'rate_limited' ? 'Claude kullanım sınırına ulaşıldı. Biraz sonra tekrar dene.' : code === 'not_granted' ? 'Claude\'a izin verilmedi.' : 'Claude yanıt veremedi. Tekrar dene.'; }
+  if (m === 'nogpu') return 'Bu tarayıcı WebGPU desteklemiyor. Ayarlar\'dan "Ders Özetim yapay zekâsı"nı seç.';
+  if (/ollama|fetch|Failed/i.test(m)) return 'Ollama\'ya bağlanılamadı. Ayarlar\'daki komutla başlattığından emin ol.';
+  return 'Yapay zekâ yanıt veremedi. Tekrar dene.';
+}
 function parseJSONLoose(t){
   t = stripThink(t).replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
   try { return JSON.parse(t); } catch(e){}
@@ -103,26 +175,6 @@ function parseJSONLoose(t){
 }
 
 /* ---------- istemler (prompt) ---------- */
-function planPrompt(o){
-  const p = DB.d.profile;
-  const topics = o.subjects.map(s => { const t = topicsOfSubject(s).slice(0, 14); return t.length ? s + ': ' + t.join(', ') : ''; }).filter(Boolean).join('\n');
-  return `Sen YKS'ye hazırlanan bir öğrenciye haftalık çalışma programı hazırlayan bir rehber öğretmensin. Tamamen Türkçe yaz.
-
-Öğrenci bilgileri:
-- Alan: ${TRACKS[p.track] ? TRACKS[p.track].name : p.track}
-- Çalışacağı dersler: ${o.subjects.join(', ')}
-- Zorlandığı dersler (daha çok zaman ayır): ${o.weak.length ? o.weak.join(', ') : 'belirtilmedi'}
-- Günlük çalışma süresi: yaklaşık ${o.hours} saat (her görev yaklaşık 50 dakika)
-- Çalışacağı günler: ${o.days.slice().sort().map(d => DAYS[d]).join(', ')}
-${o.note ? '- Öğrencinin notu: ' + o.note + '\n' : ''}
-Mümkünse şu konu adlarını aynen kullan:
-${topics || '(liste yok)'}
-
-Kurallar: Her güne ${Math.max(1, Math.round(o.hours * 60 / 50))} görev koy. Konu çalışmasını hemen ardından aynı konudan soru çözümüyle eşleştir. Pazar günü çalışılıyorsa genel tekrar ve deneme koy. Görev metni kısa ve net olsun.
-
-SADECE şu yapıda JSON döndür:
-{"gunler":[{"gun":"Pazartesi","gorevler":[{"ders":"Matematik","konu":"Mutlak Değer","gorev":"Mutlak değer konu tekrarı"}]}]}`;
-}
 function weekPrompt(wk, w){
   const p = DB.d.profile;
   const lines = w.tasks.map(t => DAYS[t.day] + ': ' + t.text + (t.topic ? ' (konu: ' + t.topic + ')' : '')).slice(0, 80).join('\n');
@@ -149,20 +201,4 @@ function summaryPrompt(subject, name){
 SADECE şu yapıda JSON döndür:
 {"title":"konu başlığı","oneLiner":"tek cümlelik özet","overview":"3-4 cümle genel bakış","sections":[{"title":"alt başlık","explanation":"2-4 cümle açıklama","points":["önemli nokta"],"example":"kısa örnek ya da boş metin"}],"formulas":[{"name":"formül adı","formula":"formül","note":"semboller"}],"terms":[{"term":"kavram","definition":"tanım"}],"mistakes":["sık yapılan hata"],"questions":[{"q":"soru","a":"kısa cevap"}],"studyTip":"çalışma ipucu"}
 3-5 alt başlık, 3-6 kavram, 2-3 hata ve 3-4 soru yaz. Konuda formül yoksa formulas boş dizi olsun.`;
-}
-function planFromJSON(j){
-  if (!j) return null;
-  const days = Array.isArray(j.gunler) ? j.gunler : Array.isArray(j.days) ? j.days : null;
-  if (!days) return null;
-  const lc = DAYS.map(d => d.toLocaleLowerCase('tr'));
-  const out = [];
-  days.forEach(d => {
-    const di = lc.indexOf(String(d.gun || d.day || '').toLocaleLowerCase('tr').trim());
-    if (di < 0) return;
-    (d.gorevler || d.tasks || []).forEach(t => {
-      const text = String(t.gorev || t.task || '').trim(); if (!text) return;
-      out.push({ day: di, subject: canonSubject(t.ders || t.subject || ''), topic: String(t.konu || t.topic || '').trim(), text });
-    });
-  });
-  return out.length ? out : null;
 }
