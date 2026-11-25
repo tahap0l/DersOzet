@@ -71,6 +71,16 @@ const Cloud = {
     const { error } = await this.sb.auth.updateUser({ password });
     if (error) throw error;
   },
+  hasPassword(){
+    const u = this.user; if (!u) return false;
+    const prov = (u.app_metadata && u.app_metadata.providers) || [u.app_metadata && u.app_metadata.provider];
+    return !!DB.d.profile.pwSet || prov.includes('email');
+  },
+  async checkPassword(password){
+    this.inLogin = true;
+    try { const { error } = await this.sb.auth.signInWithPassword({ email: this.user.email, password }); if (error) throw error; }
+    finally { this.inLogin = false; }
+  },
   needsPassword(){
     const u = this.user; if (!u || DB.d.profile.pwSet) return false;
     const prov = (u.app_metadata && u.app_metadata.providers) || [];

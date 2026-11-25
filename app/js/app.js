@@ -368,6 +368,12 @@ function profileView(){
   const yd = fromKey(yksDate());
   return `
   <header class="prof"><div class="avatar lg">${esc((p.name || '?').charAt(0).toLocaleUpperCase('tr'))}</div><div><h1>${esc(p.name || 'Adını ekle')}</h1><p class="sub">${g.dept ? esc((g.school ? g.school + ', ' : '') + g.dept) + ' hedefliyor' : esc(TRACKS[p.track] ? TRACKS[p.track].name : '') + ' öğrencisi'}</p></div></header>
+  ${Cloud.uid ? `<h2 class="menu-h">Hesabın</h2>
+  <ul class="menu">
+    <li><div class="mi"><span>E-posta</span><span class="mv">${esc(Cloud.user.email || '')}</span></div></li>
+    <li><button data-act="pw-set"><span>${Cloud.hasPassword() ? 'Şifreni değiştir' : 'Şifre belirle'}</span><span class="mv">${Cloud.hasPassword() ? '••••••' : 'Diğer cihazlarda e-posta ve şifreyle gir'}</span></button></li>
+  </ul>
+  <h2 class="menu-h">Bilgilerin</h2>` : ''}
   <ul class="menu">
     <li><button data-act="p-info"><span>Ad ve alan</span><span class="mv">${esc(p.name || '-')}, ${esc(TRACKS[p.track] ? TRACKS[p.track].name : '')}</span></button></li>
     <li><button data-act="p-goal"><span>Hedefin</span><span class="mv">${g.dept ? esc((g.school ? g.school + ', ' : '') + g.dept) : 'Ekle'}</span></button></li>
@@ -395,8 +401,6 @@ function profileView(){
   </ul>
   ${Cloud.uid ? `<h2 class="menu-h">Hesap</h2>
   <ul class="menu">
-    <li><div class="mi"><span>Giriş</span><span class="mv">${esc(Cloud.user.email || '')}</span></div></li>
-    <li><button data-act="pw-set"><span>${DB.d.profile.pwSet ? 'Şifreni değiştir' : 'Şifre belirle'}</span><span class="mv">${DB.d.profile.pwSet ? '' : 'Diğer cihazlarda e-posta ve şifreyle gir'}</span></button></li>
     <li><button data-act="sign-out"><span>Çıkış yap</span></button></li>
     <li><button data-act="acct-del" class="danger"><span>Hesabımı sil</span></button></li>
   </ul>
@@ -572,8 +576,10 @@ function bindLogin(){
 }
 
 function pwSheet(after){
-  const box = openSheet(DB.d.profile.pwSet ? 'Şifreni değiştir' : 'Şifre belirle', `<p class="hint">Bu şifreyle başka bir telefonda, tablette ya da bilgisayarda <strong>${esc(Cloud.user && Cloud.user.email || '')}</strong> adresi ve şifrenle girebilirsin.</p>
-    <label class="f-h" for="pw-1">Yeni şifre</label><input id="pw-1" class="input" type="password" autocomplete="new-password" minlength="6" placeholder="En az 6 karakter" autofocus>
+  const has = Cloud.hasPassword() && !Cloud.recovery;
+  const box = openSheet(has ? 'Şifreni değiştir' : 'Şifre belirle', `<p class="hint">Bu şifreyle başka bir telefonda, tablette ya da bilgisayarda <strong>${esc(Cloud.user && Cloud.user.email || '')}</strong> adresi ve şifrenle girebilirsin.</p>
+    ${has ? `<label class="f-h" for="pw-0">Şu anki şifren</label><div class="pw"><input id="pw-0" class="input" type="password" autocomplete="current-password" autofocus><button type="button" class="pw-eye" data-act="pw-eye" aria-label="Şifreleri göster">${I.eye}</button></div>` : ''}
+    <label class="f-h" for="pw-1">Yeni şifre</label><input id="pw-1" class="input" type="password" autocomplete="new-password" minlength="6" placeholder="En az 6 karakter"${has ? '' : ' autofocus'}>
     <label class="f-h" for="pw-2">Şifre tekrar</label><input id="pw-2" class="input" type="password" autocomplete="new-password" minlength="6">
     <p class="err" id="pw-e" role="alert"></p><div class="row"><button class="btn primary" id="pw-go">Kaydet</button></div>`);
   $('#pw-go', box).addEventListener('click', async () => {
@@ -581,7 +587,13 @@ function pwSheet(after){
     if (a.length < 6){ $('#pw-e', box).textContent = 'Şifre en az 6 karakter olmalı.'; return; }
     if (a !== b){ $('#pw-e', box).textContent = 'İki şifre aynı değil.'; return; }
     $('#pw-go', box).disabled = true;
-    try { await Cloud.setPassword(a); DB.d.profile.pwSet = true; DB.save(); closeSheet(); toast('Şifren kaydedildi. Diğer cihazlarda e-posta ve şifrenle girebilirsin.'); if (after) after(); else render(); }
+    if (has){
+      const cur = $('#pw-0', box).value;
+      if (!cur){ $('#pw-go', box).disabled = false; $('#pw-e', box).textContent = 'Şu anki şifreni yaz.'; return; }
+      try { await Cloud.checkPassword(cur); }
+      catch(err){ $('#pw-go', box).disabled = false; $('#pw-e', box).textContent = 'Şu anki şifren yanlış. Hatırlamıyorsan çıkış yapıp giriş ekranında Şifremi unuttum\'a bas.'; return; }
+    }
+    try { await Cloud.setPassword(a); Cloud.recovery = false; DB.d.profile.pwSet = true; DB.save(); closeSheet(); toast('Şifren kaydedildi. Diğer cihazlarda e-posta ve şifrenle girebilirsin.'); if (after) after(); else render(); }
     catch(err){ $('#pw-go', box).disabled = false; $('#pw-e', box).textContent = /same|different/i.test(err.message || '') ? 'Yeni şifre eskisinden farklı olmalı.' : AUTH_ERR(err); }
   });
 }
@@ -922,6 +934,7 @@ const ACT = {
     render();
   },
   'pw-set': () => pwSheet(),
+  'pw-eye': () => { $$('#pw-0, #pw-1, #pw-2').forEach(i => { i.type = i.type === 'password' ? 'text' : 'password'; }); },
   'sign-out': async el => {
     if (el.dataset.armed !== '1'){ el.dataset.armed = '1'; el.querySelector('span').textContent = 'Çıkış yapılsın mı? Tekrar bas'; return; }
     if (Room.id) await Room.leave(); await Cloud.signOut(); login.mode = 'in'; go('#/bugun'); render();

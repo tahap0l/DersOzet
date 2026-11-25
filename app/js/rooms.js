@@ -177,7 +177,14 @@ const Room = {
           const snd = P.pc.getSenders().find(x => x.track && x.track.kind === track.kind) || P.pc.getSenders().find(x => !x.track && x.__kind === track.kind);
           if (snd) snd.replaceTrack(track); else { const x = P.pc.addTrack(track, this.local); x.__kind = track.kind; }
         });
-      } catch(e){ toast(e && e.name === 'NotAllowedError' ? (kind === 'mic' ? 'Mikrofon izni verilmedi. Tarayıcı ayarlarından izin ver.' : 'Kamera izni verilmedi. Tarayıcı ayarlarından izin ver.') : 'Cihaz açılamadı.'); return; }
+      } catch(e){
+        const what = kind === 'mic' ? 'Mikrofon' : 'Kamera', n = e && e.name;
+        toast(n === 'NotAllowedError' || n === 'SecurityError' ? what + ' izni verilmedi. Adres çubuğundaki kilit simgesine dokunup ' + what.toLocaleLowerCase('tr') + ' iznini aç, sonra tekrar dene.'
+          : n === 'NotFoundError' || n === 'OverconstrainedError' ? 'Bu cihazda ' + what.toLocaleLowerCase('tr') + ' bulunamadı.'
+          : n === 'NotReadableError' || n === 'AbortError' ? what + ' başka bir uygulamada açık olabilir. O uygulamayı kapatıp tekrar dene.'
+          : what + ' açılamadı.');
+        return;
+      }
     } else if (this.local){
       const k = kind === 'mic' ? 'audio' : 'video';
       this.local.getTracks().filter(t => t.kind === k).forEach(t => { t.stop(); this.local.removeTrack(t); });
