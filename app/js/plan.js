@@ -143,7 +143,7 @@ function planPrompt(P){
   return `Sen YKS'ye hazırlanan öğrencilere kişisel çalışma programı hazırlayan deneyimli bir rehber öğretmensin. Tamamen Türkçe yaz.
 
 Öğrenci:
-- Adı: ${p.name || 'belirtilmedi'}, alan: ${TRACKS[p.track] ? TRACKS[p.track].name : p.track}
+- Adı: ${firstName(p.name) || 'belirtilmedi'}${p.grade ? ', ' + gradeName(p.grade) + (p.grade === '12' || p.grade === 'mezun' ? ' (bu yıl sınava girecek)' : ' (sınava daha zamanı var; okul derslerini de dengele)') : ''}, alan: ${TRACKS[p.track] ? TRACKS[p.track].name : p.track}
 - YKS'ye ${daysLeft()} gün var${p.goal && p.goal.dept ? '; hedefi: ' + (p.goal.school ? p.goal.school + ' ' : '') + p.goal.dept : ''}
 ${P.note ? '- Öğrencinin notu: ' + P.note + '\n' : ''}
 Dersler:

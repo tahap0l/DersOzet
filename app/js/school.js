@@ -16,7 +16,7 @@ async function scLoad(inst, force){
   try {
     const [cls, mem, codes, progs] = await Promise.all([
       sb.from('classes').select('id, name, created_at').eq('institution_id', inst).order('name'),
-      sb.from('memberships').select('user_id, role, class_id, joined_at, p:profiles(name, goal, track)').eq('institution_id', inst).order('joined_at'),
+      sb.from('memberships').select('user_id, role, class_id, joined_at, p:profiles(name, goal, track, grade)').eq('institution_id', inst).order('joined_at'),
       staff ? sb.from('invite_codes').select('code, class_id, role').eq('institution_id', inst) : Promise.resolve({ data: [] }),
       staff ? sb.from('programs').select('id, class_id, student_id, week_start, title, tasks, created_at').eq('institution_id', inst).order('week_start', { ascending: false }).limit(80) : Promise.resolve({ data: [] })
     ]);
@@ -112,7 +112,7 @@ function classView(m, D, cid){
   <section class="block">
     <div class="block-head"><h2>Öğrenciler</h2><span class="hint">Bu hafta</span></div>
     ${students.length ? `<ul class="people">${students.map(s => { const x = stat(s.user_id); const pct = x.t ? Math.round(x.d / x.t * 100) : 0;
-      return `<li>${avatarFor(s.p && s.p.name)}<span class="pp-b"><strong>${esc(s.p ? s.p.name : '')}</strong><span class="hint">${s.p && s.p.goal ? esc(s.p.goal) : ''}</span>
+      return `<li>${avatarFor(s.p && s.p.name)}<span class="pp-b"><strong>${esc(s.p ? s.p.name : '')}</strong><span class="hint">${esc([s.p && gradeName(s.p.grade), s.p && s.p.goal].filter(Boolean).join(' · '))}</span>
         ${x.t ? `<span class="minibar" aria-label="${x.d}/${x.t} görev"><span style="width:${pct}%"></span></span><span class="hint">${x.d}/${x.t} görev</span>` : '<span class="hint">Bu hafta programı yok</span>'}</span>
         <button class="icon-btn ghost" data-act="sc-stu" data-u="${s.user_id}" aria-label="Öğrenci seçenekleri">${I.dots}</button></li>`; }).join('')}</ul>`
       : `<p class="hint">Henüz öğrenci yok. Sınıf kodunu paylaş.</p>`}

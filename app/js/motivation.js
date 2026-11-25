@@ -98,7 +98,7 @@ const MOTTOS = [
   n => `Her biten görev seni hedefine bir adım daha yaklaştırıyor, ${n}.`
 ];
 function mottoFor(o){
-  const p = DB.d.profile, n = esc(p.name || 'Sen');
+  const p = DB.d.profile, n = esc(firstName(p.name) || 'Sen');
   const g = p.goal || {};
   const doy = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 864e5);
   if (o.allDone) return `Bugünkü bütün görevlerin bitti, ${n}. Bu tempoyla ${g.dept ? esc(g.dept) + ' çok uzakta değil' : 'hedefine yaklaşıyorsun'}.`;

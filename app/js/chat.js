@@ -76,7 +76,7 @@ Kurallar:
 - Formülleri düz metinle yaz (örnek: a^2 + b^2 = c^2, √x, x/y). LaTeX kullanma.
 - Fotoğraftaki yazıyı okuyamıyorsan ya da bir bilgiden emin değilsen bunu açıkça söyle; uydurma.
 - Ders dışı konulara kısa cevap ver ve nazikçe derslere dön.
-Öğrenci: ${p.name || 'öğrenci'}, alan: ${tr}, YKS'ye ${daysLeft()} gün var${p.goal && p.goal.dept ? ', hedefi: ' + (p.goal.school ? p.goal.school + ' ' : '') + p.goal.dept : ''}.
+Öğrenci: ${firstName(p.name) || 'öğrenci'}${p.grade ? ', ' + gradeName(p.grade) : ''}, alan: ${tr}, YKS'ye ${daysLeft()} gün var${p.goal && p.goal.dept ? ', hedefi: ' + (p.goal.school ? p.goal.school + ' ' : '') + p.goal.dept : ''}.
 ${tops.length ? 'Bugünkü konuları: ' + tops.map(t => t.subject + ' - ' + t.name).join(', ') + '.' : 'Bugün programında konu yok.'}`;
 }
 
@@ -103,7 +103,7 @@ function askHTML(){
   const empty = !CH.msgs.length;
   return `<section class="ask">
     <div class="ask-top"><span class="hint" id="ask-q">${esc(AI.quotaText())}</span>${empty ? '' : '<button class="link sm" data-act="ch-new">Yeni sohbet</button>'}</div>
-    <div class="ch-log" id="ch-log" aria-live="polite">${empty ? `<div class="ch-empty">${mascotSVG('ok', 64)}<p><strong>Merhaba${DB.d.profile.name ? ' ' + esc(DB.d.profile.name) : ''}!</strong> Takıldığın soruyu yaz ya da fotoğrafını çek; adım adım çözelim. Konu anlatmamı da isteyebilirsin.</p>
+    <div class="ch-log" id="ch-log" aria-live="polite">${empty ? `<div class="ch-empty">${mascotSVG('ok', 64)}<p><strong>Merhaba${DB.d.profile.name ? ' ' + esc(firstName(DB.d.profile.name)) : ''}!</strong> Takıldığın soruyu yaz ya da fotoğrafını çek; adım adım çözelim. Konu anlatmamı da isteyebilirsin.</p>
       <div class="ch-sugs">${chSuggestions().map(s => `<button class="fchip" data-act="ch-sug" data-t="${esc(s)}">${esc(s)}</button>`).join('')}</div></div>` : CH.msgs.map(chMsgHTML).join('')}</div>
     <form class="ch-form" id="ch-f">
       <div class="ch-pic" id="ch-pic"${CH.img ? '' : ' hidden'}>${CH.img ? `<img src="${CH.img.thumb}" alt="Eklenen fotoğraf">` : ''}<button type="button" class="icon-btn sm" data-act="ch-pic-x" aria-label="Fotoğrafı kaldır">${I.close}</button></div>

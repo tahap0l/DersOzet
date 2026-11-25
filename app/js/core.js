@@ -7,7 +7,7 @@
  */
 'use strict';
 
-const APP = { name: 'Ders Özetim', author: 'Esat Taha Polat', repo: 'https://github.com/tahap0l/DersOzet', version: '3.8.0' };
+const APP = { name: 'Ders Özetim', author: 'Esat Taha Polat', repo: 'https://github.com/tahap0l/DersOzet', version: '3.8.1' };
 const ENV = window.DO_ENV || 'web'; // 'web': Cloudflare / GitHub sürümü, 'artifact': claude.ai yapıtı
 const CAP = { sample: null, downloads: null };
 
@@ -267,6 +267,13 @@ function normalizeSummary(r){
 }
 
 /* ---------- veri deposu (yalnızca bu cihazda, localStorage) ---------- */
+/* kaçıncı sınıf */
+const GRADES = [['9', '9. sınıf'], ['10', '10. sınıf'], ['11', '11. sınıf'], ['12', '12. sınıf'], ['mezun', 'Mezun']];
+const gradeName = g => { const x = GRADES.find(r => r[0] === String(g || '')); return x ? x[1] : ''; };
+const firstName = n => String(n || '').trim().split(/\s+/)[0] || '';
+/* ad ve soyad en az iki kelime mi */
+const fullNameOk = n => String(n || '').trim().split(/\s+/).filter(w => w.length >= 2).length >= 2;
+
 const DB = {
   KEY: 'dersozetim.v4',
   d: null,

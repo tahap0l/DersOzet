@@ -164,7 +164,7 @@ function todayView(){
   return `
   <header class="top"><p class="top-date">${DAYS[di]}, ${fmtDay(new Date())}</p><a class="avatar" href="#/profil" aria-label="Profil">${esc((p.name || '?').charAt(0).toLocaleUpperCase('tr'))}</a></header>
   <section class="hero${allDone ? ' all-done' : ''}">
-    <h1 class="greet">${hi}${p.name ? ', ' + esc(p.name) : ''}.</h1>
+    <h1 class="greet">${hi}${p.name ? ', ' + esc(firstName(p.name)) : ''}.</h1>
     <p class="lede">YKS'ye <strong class="count">${left} gün</strong> kaldı. ${taskLine}</p>
     ${g.dept ? `<p class="goal-line">${I.target}<span>Hedefin: <strong>${g.school ? esc(g.school) + ', ' : ''}${esc(g.dept)}</strong></span></p>` : ''}
     <div class="pills">
@@ -400,7 +400,7 @@ function profileView(){
   const g = p.goal || {}, got = DB.d.stats.badges || {};
   const yd = fromKey(yksDate());
   return `
-  <header class="prof"><div class="avatar lg">${esc((p.name || '?').charAt(0).toLocaleUpperCase('tr'))}</div><div><h1>${esc(p.name || 'Adını ekle')}</h1><p class="sub">${g.dept ? esc((g.school ? g.school + ', ' : '') + g.dept) + ' hedefliyor' : esc(TRACKS[p.track] ? TRACKS[p.track].name : '') + ' öğrencisi'}</p></div></header>
+  <header class="prof"><div class="avatar lg">${esc((p.name || '?').charAt(0).toLocaleUpperCase('tr'))}</div><div><h1>${esc(p.name || 'Adını ekle')}</h1><p class="sub">${[gradeName(p.grade), TRACKS[p.track] ? TRACKS[p.track].name : ''].filter(Boolean).map(esc).join(' · ')}${g.dept ? '<br>' + esc((g.school ? g.school + ', ' : '') + g.dept) + ' hedefliyor' : ''}</p></div></header>
   ${Cloud.isAdmin ? `<a class="focus-cta admin-cta" href="#/admin"><span class="fc-ic">${I.shield}</span><span><strong>Yönetici paneli</strong><span>Kullanıcılar, dershaneler, odalar ve şikâyetler. Sadece sen görürsün.</span></span><span class="fc-go">${I.next}</span></a>` : ''}
   ${Cloud.uid ? `<h2 class="menu-h">Hesabın</h2>
   <ul class="menu">
@@ -409,7 +409,7 @@ function profileView(){
   </ul>
   <h2 class="menu-h">Bilgilerin</h2>` : ''}
   <ul class="menu">
-    <li><button data-act="p-info"><span>Ad ve alan</span><span class="mv">${esc(p.name || '-')}, ${esc(TRACKS[p.track] ? TRACKS[p.track].name : '')}</span></button></li>
+    <li><button data-act="p-info"><span>Ad, sınıf ve alan</span><span class="mv">${esc(p.name || '-')}${p.grade ? ', ' + esc(gradeName(p.grade)) : ''}, ${esc(TRACKS[p.track] ? TRACKS[p.track].name : '')}</span></button></li>
     <li><button data-act="p-goal"><span>Hedefin</span><span class="mv">${g.dept ? esc((g.school ? g.school + ', ' : '') + g.dept) : 'Ekle'}</span></button></li>
     <li><button data-act="p-why"><span>Neden çalışıyorum?</span><span class="mv">${p.why ? esc(p.why) : 'Kendine bir not yaz'}</span></button></li>
     <li><button data-act="p-date"><span>YKS tarihi</span><span class="mv">${yd.getDate()} ${MONTHS[yd.getMonth()]} ${yd.getFullYear()}${p.yks ? '' : ' (tahmini)'}</span></button></li>
@@ -621,8 +621,11 @@ function welcomeView(){
     <h1>Hoş geldin!</h1>
     <p class="w-lede">Ben ${MASCOT.name}. Birkaç bilgiyle programını sana göre hazırlayalım.</p>
     <form id="w-form" class="w-form">
-      <label class="f-h" for="w-name">Sana nasıl seslenelim?</label>
-      <input id="w-name" class="input" maxlength="30" placeholder="Adın" autocomplete="given-name" value="${esc(titleCase(gn))}" required>
+      <label class="f-h" for="w-name">Adın ve soyadın</label>
+      <input id="w-name" class="input" maxlength="40" placeholder="Örn. Ayşe Yılmaz" autocomplete="name" value="${esc(titleCase(gn))}" required>
+      <p class="hint">Dershanedeki hocaların ve oda arkadaşların seni bu adla görür.</p>
+      <p class="f-h">Kaçıncı sınıftasın?</p>
+      <div class="chips-row wrap" role="radiogroup" aria-label="Sınıfın">${GRADES.map(([k, n]) => `<label class="fchip radio"><input type="radio" name="w-grade" value="${k}"${'' === k ? ' checked' : ''}>${n}</label>`).join('')}</div>
       <p class="f-h">Alanın</p>
       <div class="chips-row wrap">${Object.keys(TRACKS).map((k, i) => `<label class="fchip radio"><input type="radio" name="w-track" value="${k}"${i === 0 ? ' checked' : ''}>${TRACKS[k].name}</label>`).join('')}</div>
       <label class="f-h" for="w-goal">Hedef bölümün (isteğe bağlı)</label>
@@ -650,6 +653,25 @@ function renderNav(show){
   const tabs = TABS.filter(t => ((t.id !== 'odalar' && t.id !== 'dershane') || Cloud.enabled) && (!t.admin || Cloud.isAdmin));
   nav.innerHTML = `<a class="rail-brand" href="#/bugun" aria-label="Ders Özetim">${mascotSVG('ok', 34)}<span>Ders Özetim</span></a>` + tabs.map(t => `<a class="tab${t.rail ? ' rail-only' : ''}${active === t.id || (!wide && t.id === 'defter' && (active === 'kitaplik' || active === 'lab')) ? ' on' : ''}" href="#/${t.id}"${active === t.id ? ' aria-current="page"' : ''}>${t.icon}<span>${t.label}</span>${t.id === 'odak' ? '<span class="tab-b" id="tab-odak-b" hidden></span>' : ''}</a>`).join('');
 }
+/* eski hesaplar: ad soyad ya da sınıf eksikse bir kez sorulur */
+function profileNudge(){
+  const p = DB.d.profile;
+  if (!Cloud.uid || ui.nudged || sheetEl || route.page === 'oda' || (fullNameOk(p.name) && p.grade)) return;
+  ui.nudged = true;
+  setTimeout(() => {
+    if (sheetEl || route.page === 'oda') return;
+    const box = openSheet('Profilini tamamla', `<p class="hint">Dershanedeki hocaların ve oda arkadaşların seni tanısın diye adını, soyadını ve sınıfını ekle.</p>
+      <label class="f-h" for="pn-n">Adın ve soyadın</label><input id="pn-n" class="input" value="${esc(p.name || '')}" maxlength="40" autocomplete="name" placeholder="Örn. Ayşe Yılmaz">
+      <p class="f-h">Kaçıncı sınıftasın?</p><div class="chips-row wrap">${GRADES.map(([k, n]) => `<label class="fchip radio"><input type="radio" name="pn-g" value="${k}"${p.grade === k ? ' checked' : ''}>${n}</label>`).join('')}</div>
+      <p class="err" id="pn-e" role="alert"></p><div class="row"><button class="btn primary" id="pn-go">Kaydet</button></div>`, { sticky: true });
+    $('#pn-go', box).addEventListener('click', () => {
+      const n = titleCase($('#pn-n', box).value.trim().replace(/\s+/g, ' ')).slice(0, 40), gr = $('input[name="pn-g"]:checked', box);
+      if (!fullNameOk(n)){ $('#pn-e', box).textContent = 'Adını ve soyadını yaz.'; return; }
+      if (!gr){ $('#pn-e', box).textContent = 'Kaçıncı sınıfta olduğunu seç.'; return; }
+      p.name = n; p.grade = gr.value; ui.plan = null; DB.save(); closeSheet(); render(); toast('Profilin güncellendi');
+    });
+  }, 700);
+}
 const VIEWS = {};
 function render(){
   const app = $('#app');
@@ -663,6 +685,7 @@ function render(){
   app.innerHTML = v();
   renderNav(route.page !== 'oda');
   if (v.after) v.after();
+  profileNudge();
   checkBadges();
   pmPaint(); swPaint();
   if (route.page === 'bugun' && DB.d.profile.city && (!WX.data || Date.now() - WX.data.at > 30 * 60 * 1000) && !WX.loading){
@@ -682,10 +705,12 @@ function bindWelcome(){
       try { await Cloud.joinCode(code); }
       catch(err){ $('#w-e').textContent = (err.message || 'Kod geçerli değil.') + ' Kodu boş bırakıp sonra Profil sayfasından da katılabilirsin.'; return; }
     }
-    const name = titleCase($('#w-name').value.trim()).slice(0, 30);
-    if (!name){ $('#w-name').focus(); return; }
+    const name = titleCase($('#w-name').value.trim().replace(/\s+/g, ' ')).slice(0, 40);
+    if (!fullNameOk(name)){ $('#w-e').textContent = 'Adını ve soyadını yaz.'; $('#w-name').focus(); return; }
+    const gr = $('input[name="w-grade"]:checked');
+    if (!gr){ $('#w-e').textContent = 'Kaçıncı sınıfta olduğunu seç.'; return; }
     const tr = $('input[name="w-track"]:checked');
-    DB.d.profile.name = name; DB.d.profile.track = tr ? tr.value : 'SAY'; DB.d.onboarded = true;
+    DB.d.profile.name = name; DB.d.profile.grade = gr.value; DB.d.profile.track = tr ? tr.value : 'SAY'; DB.d.onboarded = true;
     const gd = $('#w-goal').value.trim(); if (gd) DB.d.profile.goal = { school: '', dept: titleCase(gd).slice(0, 60) };
     DB.save();
     go('#/bugun');
@@ -981,10 +1006,18 @@ const ACT = {
   city: () => citySheet(),
   'p-info': () => {
     const p = DB.d.profile;
-    const box = openSheet('Ad ve alan', `<label class="f-h" for="pi-n">Adın</label><input id="pi-n" class="input" value="${esc(p.name)}" maxlength="30" autofocus>
+    const box = openSheet('Ad, sınıf ve alan', `<label class="f-h" for="pi-n">Adın ve soyadın</label><input id="pi-n" class="input" value="${esc(p.name)}" maxlength="40" autocomplete="name" autofocus>
+      <p class="f-h">Kaçıncı sınıftasın?</p><div class="chips-row wrap">${GRADES.map(([k, n]) => `<label class="fchip radio"><input type="radio" name="pi-g" value="${k}"${p.grade === k ? ' checked' : ''}>${n}</label>`).join('')}</div>
       <p class="f-h">Alanın</p><div class="chips-row wrap">${Object.keys(TRACKS).map(k => `<label class="fchip radio"><input type="radio" name="pi-t" value="${k}"${p.track === k ? ' checked' : ''}>${TRACKS[k].name}</label>`).join('')}</div>
-      <div class="row"><button class="btn primary" id="pi-go">Kaydet</button></div>`);
-    $('#pi-go', box).addEventListener('click', () => { const n = titleCase($('#pi-n', box).value.trim()); if (n) p.name = n.slice(0, 30); const t = $('input[name="pi-t"]:checked', box); if (t) p.track = t.value; ui.plan = null; DB.save(); closeSheet(); render(); });
+      <p class="err" id="pi-e" role="alert"></p><div class="row"><button class="btn primary" id="pi-go">Kaydet</button></div>`);
+    $('#pi-go', box).addEventListener('click', () => {
+      const n = titleCase($('#pi-n', box).value.trim().replace(/\s+/g, ' ')).slice(0, 40);
+      if (!fullNameOk(n)){ $('#pi-e', box).textContent = 'Adını ve soyadını yaz.'; return; }
+      p.name = n;
+      const gr = $('input[name="pi-g"]:checked', box); if (gr) p.grade = gr.value;
+      const t = $('input[name="pi-t"]:checked', box); if (t) p.track = t.value;
+      ui.plan = null; DB.save(); closeSheet(); render();
+    });
   },
   'p-date': () => {
     const box = openSheet('YKS tarihi', `<p class="hint">ÖSYM 2027 YKS tarihini henüz açıklamadı; 19 Haziran 2027 tahmini bir tarihtir. Açıklanınca buradan güncelle.</p>
@@ -1104,7 +1137,7 @@ document.addEventListener('change', e => {
     if (t.checked && wk === thisWeek() && task.day === todayIdx()){
       const ts = DB.week(wk).tasks.filter(x => x.day === todayIdx());
       const full = DB.d.stats.full = DB.d.stats.full || {};
-      if (ts.every(x => x.done) && !full[dayKey()]){ full[dayKey()] = 1; setTimeout(() => toast('Bugünkü bütün görevlerin bitti' + (DB.d.profile.name ? ', ' + DB.d.profile.name : '') + '. Helal olsun!'), 200); }
+      if (ts.every(x => x.done) && !full[dayKey()]){ full[dayKey()] = 1; setTimeout(() => toast('Bugünkü bütün görevlerin bitti' + (DB.d.profile.name ? ', ' + firstName(DB.d.profile.name) : '') + '. Helal olsun!'), 200); }
     }
     DB.save(); render();
     return;

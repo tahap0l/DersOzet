@@ -184,13 +184,14 @@ const Cloud = {
   },
 
   /* ---------- profil (sınıf arkadaşları ve hocalar adını görür) ---------- */
-  profileRow(){ const p = DB.d.profile, g = p.goal || {}; return { name: (p.name || '').slice(0, 40), track: String(p.track || 'SAY').toLowerCase(), goal: [g.school, g.dept].filter(Boolean).join(', ').slice(0, 80), palette: p.palette || 'lavanta' }; },
+  profileRow(){ const p = DB.d.profile, g = p.goal || {}; return { name: (p.name || '').slice(0, 40), grade: GRADES.some(r => r[0] === p.grade) ? p.grade : '', track: String(p.track || 'SAY').toLowerCase(), goal: [g.school, g.dept].filter(Boolean).join(', ').slice(0, 80), palette: p.palette || 'lavanta' }; },
   async loadProfile(){
     const { data } = await this.sb.from('profiles').select('*').eq('id', this.uid).maybeSingle();
     this.profile = data || null;
     if (data){
-      this.lastProfile = JSON.stringify({ name: data.name, track: data.track, goal: data.goal, palette: data.palette });
-      if (!DB.d.profile.name && data.name) DB.d.profile.name = data.name;
+      this.lastProfile = JSON.stringify({ name: data.name, grade: data.grade || '', track: data.track, goal: data.goal, palette: data.palette });
+      if (data.name && (!DB.d.profile.name || (!fullNameOk(DB.d.profile.name) && fullNameOk(data.name)))) DB.d.profile.name = data.name;
+      if (!DB.d.profile.grade && data.grade) DB.d.profile.grade = data.grade;
     }
   },
   async pushProfile(){

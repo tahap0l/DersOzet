@@ -55,7 +55,7 @@ function mascotLines(){
   const ts = w ? w.tasks.filter(t => t.day === di) : [];
   const tops = todayTopics(), open = ts.filter(t => !t.done);
   const h = new Date().getHours();
-  const name = p.name ? p.name : '';
+  const name = p.name ? firstName(p.name) : '';
   if (!ts.length){
     const tom = w ? w.tasks.filter(t => t.day === (di + 1) % 7 && t.topic) : [];
     if (w && w.tasks.length) return [`Bugün programında görev yok${name ? ', ' + name : ''}.`, tom.length ? `Yarın ${joinTr(tom.slice(0, 2).map(t => t.topic))} var; istersen bugün özetine bir göz at.` : 'Dinlen, ya da geçen haftanın yanlışlarına dön.'];
