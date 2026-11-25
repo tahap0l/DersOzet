@@ -21,6 +21,7 @@
   "shortcuts": [
     { "name": "Odaklan", "url": "./#/odak", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Program", "url": "./#/program", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Odalar", "url": "./#/odalar", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+    { "name": "Odalar", "url": "./#/odalar", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Yanlış defteri", "url": "./#/yanlis", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

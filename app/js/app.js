@@ -41,6 +41,15 @@ const I = {
   expand: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>',
   music: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>',
   shield: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v6c0 4.5 3.2 7.8 7.5 9 4.3-1.2 7.5-4.5 7.5-9V6Z"/><path d="m9 12 2 2 4-4"/></svg>',
+  pen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10Z"/><path d="M14 7l3 3"/></svg>',
+  marker: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 15 7.5-7.5a2 2 0 0 1 3 3L12 18l-4 1Z"/><path d="M8 19H4l2.5-2.5M4 21h16"/></svg>',
+  eraser: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 4.5 21 9l-9.5 9.5H7L3 14.5Z"/><path d="M9.5 8.5l6 6M7 18.5h13"/></svg>',
+  undo: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>',
+  redo: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg>',
+  hand: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12M11 11V4.5a1.5 1.5 0 0 1 3 0V12M14 11.5V6a1.5 1.5 0 0 1 3 0v7c0 4-2.5 7-6.5 7-2.6 0-4.2-1.3-5.4-3.5L3.5 13a1.5 1.5 0 0 1 2.6-1.4L8 14"/></svg>',
+  text: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 11h14M5 16h9"/></svg>',
+  notebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18M3 7h4M3 12h4M3 17h4M12 8h4M12 12h4"/></svg>',
+  phone: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>',
   spark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8L12 17.5l-1.8-5.2L5 10.5l5.2-1.8Z"/><path d="M18.5 16l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7Z"/></svg>'
 };
 const TABS = [
@@ -48,7 +57,8 @@ const TABS = [
   { id: 'program', label: 'Program', icon: I.cal },
   { id: 'odalar', label: 'Odalar', icon: I.rooms },
   { id: 'odak', label: 'Odak', icon: I.timer },
-  { id: 'kitaplik', label: 'Kitaplık', icon: I.book },
+  { id: 'defter', label: 'Defter', icon: I.notebook },
+  { id: 'kitaplik', label: 'Kitaplık', icon: I.book, rail: true },
   { id: 'dershane', label: 'Dershane', icon: I.school, rail: true },
   { id: 'medya', label: 'Müzik ve video', icon: I.music, rail: true },
   { id: 'admin', label: 'Yönetici', icon: I.shield, rail: true, admin: true },
@@ -162,6 +172,7 @@ function todayView(){
     <p class="motto">${mottoFor({ allDone, streak: st.cur, left })}</p>
   </section>
   ${mascotCard()}
+  ${Cloud.enabled ? installBanner() : ''}
   ${p.why ? `<aside class="why"><p class="why-h">Neden çalışıyorum?</p><p class="why-t">${esc(p.why)}</p></aside>` : ''}
   ${weatherNote()}
   <section class="block">
@@ -252,7 +263,7 @@ function libraryView(){
   const all = allTopics();
   const subs = SUBJ_ORDER.filter(s => all.some(t => t.subject === s));
   return `
-  <header class="page-head"><h1>Kitaplık</h1><p class="sub">${all.length} konu özeti</p></header>
+  ${Cloud.uid && !matchMedia('(min-width: 900px)').matches ? '<header class="page-head"><h1>Defter</h1></header>' + defterSeg('kitaplik') + `<p class="sub">${all.length} konu özeti</p>` : `<header class="page-head"><h1>Kitaplık</h1><p class="sub">${all.length} konu özeti</p></header>`}
   <div class="search"><input id="lib-q" type="search" inputmode="search" placeholder="Konu ara: basınç, paragraf, hücre" value="${esc(ui.libQ)}" aria-label="Konu ara" autocomplete="off"></div>
   <div class="chips-row" role="group" aria-label="Ders filtresi">
     <button class="fchip${!ui.libS ? ' on' : ''}" data-act="lib-s" data-s="">Tümü</button>
@@ -393,6 +404,7 @@ function profileView(){
     <li><button data-act="p-sound"><span>Sayaç sesi</span><span class="mv">${p.sound === false ? 'Kapalı' : 'Açık'}</span></button></li>
     <li><a href="#/asistan/ayar"><span>Yapay zekâ</span><span class="mv">${esc(AI.label())}</span></a></li>
     <li><a href="#/medya"><span>Müzik ve video</span><span class="mv">YouTube, Spotify</span></a></li>
+    <li><a href="#/kur"><span>Ana ekrana ekle</span><span class="mv">iPhone, Android, bilgisayar</span></a></li>
   </ul>
   ${Cloud.uid ? `<h2 class="menu-h">Dershane</h2>
   <ul class="menu">
@@ -639,9 +651,10 @@ function renderNav(show){
   document.body.classList.toggle('has-nav', !!show);
   if (!show){ nav.hidden = true; return; }
   nav.hidden = false;
-  const active = route.page === 'konu' ? 'kitaplik' : route.page === 'oda' ? 'odalar' : route.page === 'asistan' ? '' : route.page;
+  const active = route.page === 'konu' ? 'kitaplik' : route.page === 'oda' ? 'odalar' : /^(yanlis|not|tekrar)$/.test(route.page) ? 'defter' : route.page === 'kur' ? 'profil' : route.page === 'asistan' ? '' : route.page;
+  const wide = matchMedia('(min-width: 900px)').matches;
   const tabs = TABS.filter(t => ((t.id !== 'odalar' && t.id !== 'dershane') || Cloud.enabled) && (!t.admin || Cloud.isAdmin));
-  nav.innerHTML = `<a class="rail-brand" href="#/bugun" aria-label="Ders Özetim">${mascotSVG('ok', 34)}<span>Ders Özetim</span></a>` + tabs.map(t => `<a class="tab${t.rail ? ' rail-only' : ''}${active === t.id ? ' on' : ''}" href="#/${t.id}"${active === t.id ? ' aria-current="page"' : ''}>${t.icon}<span>${t.label}</span>${t.id === 'odak' ? '<span class="tab-b" id="tab-odak-b" hidden></span>' : ''}</a>`).join('');
+  nav.innerHTML = `<a class="rail-brand" href="#/bugun" aria-label="Ders Özetim">${mascotSVG('ok', 34)}<span>Ders Özetim</span></a>` + tabs.map(t => `<a class="tab${t.rail ? ' rail-only' : ''}${active === t.id || (!wide && t.id === 'defter' && active === 'kitaplik') ? ' on' : ''}" href="#/${t.id}"${active === t.id ? ' aria-current="page"' : ''}>${t.icon}<span>${t.label}</span>${t.id === 'odak' ? '<span class="tab-b" id="tab-odak-b" hidden></span>' : ''}</a>`).join('');
 }
 const VIEWS = {};
 function render(){
@@ -1129,7 +1142,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden){ if (Cloud.uid) Cloud.flushPush(); return; }
   if (T().running) pmTick();
   if (route.page === 'bugun') render();
-  if (Cloud.uid && Date.now() - lastRefresh > 3000){ lastRefresh = Date.now(); Cloud.refresh().then(ch => { if (ch && !sheetEl && route.page !== 'oda') render(); }); }
+  if (Cloud.uid && Date.now() - lastRefresh > 3000){ lastRefresh = Date.now(); Cloud.refresh().then(ch => { if (ch && !sheetEl && route.page !== 'oda' && route.page !== 'not') render(); }); }
 });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 

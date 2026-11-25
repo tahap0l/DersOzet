@@ -77,6 +77,8 @@ function mascotCard(){
   const tops = todayTopics().filter(t => t.sum);
   const qs = tops.reduce((a, t) => a + ((t.sum.summary.questions || []).length), 0);
   const lines = mascotLines();
+  const wd = typeof NT !== 'undefined' ? NT.due().length : 0;
+  if (wd) lines.push(`Yanlış defterinde bugün ${wd} soru seni bekliyor.`);
   return `<section class="mascot-card" aria-label="${MASCOT.name}">
     <div class="mc-face">${mascotSVG(mascotMood(), 76)}</div>
     <div class="mc-b">
@@ -85,6 +87,7 @@ function mascotCard(){
       <div class="mc-acts">
         ${tops.length ? `<button class="mc-btn" data-act="m-topics">Konuları hatırlat</button>` : ''}
         ${qs ? `<button class="mc-btn" data-act="m-quiz">Beni sına</button>` : ''}
+        ${wd ? `<button class="mc-btn" data-act="m-wrongs">Yanlışları tekrar et</button>` : ''}
         <button class="mc-btn" data-act="m-chat">Sor</button>
       </div>
     </div>

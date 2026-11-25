@@ -122,7 +122,7 @@ const Cloud = {
   onRemote(){
     if (typeof pmLoop === 'function') pmLoop();
     if (typeof swLoop === 'function') swLoop();
-    if (!document.querySelector('.sheet-wrap') && route.page !== 'oda') render();
+    if (!document.querySelector('.sheet-wrap') && route.page !== 'oda' && route.page !== 'not') render();
   },
   async afterLogin(){
     try { await this.pullState(); } catch(e){ console.warn('state', e); }
@@ -131,6 +131,7 @@ const Cloud = {
     try { this.isAdmin = !!(await this.rpc('is_app_admin')); } catch(e){ this.isAdmin = false; }
     try { await this.loadSchool(); } catch(e){}
     try { await this.pullPrograms(); } catch(e){ console.warn('programs', e); }
+    if (typeof ntLoad === 'function') ntLoad(true);
   },
 
   /* ---------- kişisel verinin eşitlenmesi ---------- */

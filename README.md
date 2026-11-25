@@ -16,6 +16,8 @@ Geliştiren: **Esat Taha Polat** ([@tahap0l](https://github.com/tahap0l))
 - **Plan oluştur:** Derslerini, zorlandığın dersleri, günlük saatini ve günlerini seç; sana göre haftalık plan hazırlansın. Yapay zekâ gerekmez.
 - **Kitaplık:** Hazır YKS konu özetleri (konu anlatımı, formüller, kavramlar, sık yapılan hatalar, çözümlü sorular). Türkçe karakter yazmadan arayabilirsin.
 - **Odak:** Odak ve mola sayacı (25/5 ya da kendi sürelerin), kronometre, son 7 günün odak grafiği. Sayaç ve kronometre hesapta durur; telefonda ve bilgisayarda aynı anda akar.
+- **Defter:** Not defteri (yazı ve kalemle çizim; çizgili, kareli, noktalı kâğıt; kalem basıncı, fosforlu kalem, silgi, geri al) ve yanlış defteri (sorunun fotoğrafı, ders/konu, yanlış nedeni, üstüne çözüm, 1-3-7-14-30 gün aralıklı tekrar). Hepsi hesapta; internet yokken yazılanlar bağlanınca gönderilir.
+- **Ana ekrana ekle:** iPhone, iPad, Android ve bilgisayar için cihazı tanıyan adım adım rehber; destekleyen tarayıcıda tek dokunuşla yükleme.
 - **Müzik ve video:** YouTube'daki ders videosunu ya da Spotify listesini uygulamanın içinde aç; oynatıcı sayfa değişince de çalmaya devam eder.
 - **Yönetici paneli:** Kullanıcılar, dershaneler, odalar ve şikâyetler; mesaj silme, oda kapatma, kullanıcı engelleme. Yalnızca `app_admins` tablosundaki hesaplar açabilir.
 - **PDF:** Tek konuyu ya da haftanın programını konu özetleriyle birlikte A4 PDF olarak indir.
@@ -78,6 +80,8 @@ app/js/school.js           dershane paneli
 app/js/rooms.js            ders odaları: ortak sayaç, sohbet, ses ve görüntü
 app/js/mascot.js           maskot Mürek
 app/js/media.js            YouTube ve Spotify oynatıcı
+app/js/notes.js            not defteri, yanlış defteri, kalemle çizim, aralıklı tekrar
+app/js/install.js          ana ekrana ekleme rehberi
 app/js/admin.js            yönetici paneli
 app/js/motivation.js       renk temaları, rozetler, günün sözü, hedefler
 app/js/app.js              arayüz ve sayfalar
