@@ -2,7 +2,8 @@
  *
  * /api/ai: uygulamanın kendi yapay zekâsı. Cloudflare Workers AI üzerinde çalışır; öğrencinin
  * API anahtarı girmesine ya da model indirmesine gerek yoktur. Yalnızca giriş yapmış öğrenciler
- * kullanabilir: her istekte Supabase'deki ai_take() oturumu doğrular ve günlük hakkı düşer.
+ * kullanabilir: her istekte Supabase'deki ai_left() oturumu ve günlük hakkı denetler; model yanıt
+ * verince ai_take() hakkı düşer. Model hata verirse hak gitmez.
  * Workers AI bağlantısı (AI) kök dizindeki wrangler.toml dosyasında tanımlıdır.
  */
 const SUPA = 'https://gwmetoexnklzdyzrvgdv.supabase.co';
@@ -61,22 +62,25 @@ export async function onRequestPost({ request, env }){
   const maxTokens = Math.max(64, Math.min(Number(body.maxTokens) || 1500, think ? 8000 : 4000));
   const cost = 1 + (m.hasImg ? 1 : 0) + (think ? 1 : 0) + (maxTokens > 2500 ? 1 : 0);
 
-  const take = await rpc('ai_take', { cost }, auth);
-  if (take.status === 401 || take.status === 403) return json({ error: 'not_signed_in' }, 401);
-  if (take.status !== 200 || !take.data) return json({ error: 'quota_check' }, 502);
-  if (!take.data.ok) return json({ error: 'quota', used: take.data.used, limit: take.data.limit }, 429);
-  const quota = { 'x-ai-used': String(take.data.used), 'x-ai-limit': String(take.data.limit) };
+  const left = await rpc('ai_left', {}, auth);
+  if (left.status === 401 || left.status === 403) return json({ error: 'not_signed_in' }, 401);
+  if (left.status !== 200 || !left.data) return json({ error: 'quota_check' }, 502);
+  const lim = Number(left.data.limit) || 0, used = Number(left.data.used) || 0;
+  if (used + cost > lim) return json({ error: 'quota', used, limit: lim }, 429);
+  const quota = { 'x-ai-used': String(used + cost), 'x-ai-limit': String(lim) };
+  const charge = () => rpc('ai_take', { cost }, auth).catch(() => null);
 
   const input = { messages: m.messages, max_tokens: maxTokens, temperature: think ? 0.6 : 0.4, chat_template_kwargs: { enable_thinking: think } };
   try {
     if (body.stream){
       const stream = await env.AI.run(MODEL, Object.assign({ stream: true }, input));
+      await charge();
       return new Response(stream, { headers: Object.assign({ 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store' }, quota) });
     }
     const r = await env.AI.run(MODEL, input);
-    return json({ text: textOf(r), used: take.data.used, limit: take.data.limit }, 200, quota);
+    await charge();
+    return json({ text: textOf(r), used: used + cost, limit: lim }, 200, quota);
   } catch(e){
-    await rpc('ai_refund', { cost }, auth).catch(() => {});
     const msg = String((e && e.message) || e);
     const code = /3036|free allocation/i.test(msg) ? 'busy_day' : /3040|capacity|429/i.test(msg) ? 'busy' : 'model';
     return json({ error: code, detail: msg.slice(0, 300) }, 502);

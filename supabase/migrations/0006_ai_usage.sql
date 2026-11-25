@@ -1,7 +1,8 @@
 -- Ders Özetim — Copyright (C) 2026 Esat Taha Polat — AGPL-3.0
 -- Sunucudaki yapay zekâ için günlük kullanım hakkı.
 -- Cloudflare'daki /api/ai fonksiyonu her istekten önce, öğrencinin kendi oturum anahtarıyla
--- ai_take() çağırır: oturum geçerli değilse ya da günlük hak bittiyse istek modele gitmez.
+-- ai_left() çağırır: oturum geçerli değilse ya da günlük hak bittiyse istek modele gitmez.
+-- Model yanıt verdikten sonra ai_take() hakkı düşer (hata olursa hak gitmez).
 
 create table public.ai_usage (
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -35,17 +36,10 @@ begin
   return jsonb_build_object('ok', true, 'used', n, 'limit', lim);
 end $$;
 
--- Model hata verirse düşülen hak geri verilir.
-create function public.ai_refund(cost int default 1) returns void
-language sql security definer set search_path = '' as $$
-  update public.ai_usage set used = greatest(0, used - greatest(1, least(coalesce(cost, 1), 10)))
-  where user_id = (select auth.uid()) and day = (now() at time zone 'Europe/Istanbul')::date
-$$;
-
 create function public.ai_left() returns jsonb
 language sql stable security definer set search_path = '' as $$
   select jsonb_build_object('used', coalesce((select used from public.ai_usage where user_id = (select auth.uid()) and day = (now() at time zone 'Europe/Istanbul')::date), 0), 'limit', public.ai_limit())
 $$;
 
-revoke execute on function public.ai_limit(), public.ai_take(int), public.ai_refund(int), public.ai_left() from public, anon;
-grant execute on function public.ai_limit(), public.ai_take(int), public.ai_refund(int), public.ai_left() to authenticated;
+revoke execute on function public.ai_limit(), public.ai_take(int), public.ai_left() from public, anon;
+grant execute on function public.ai_limit(), public.ai_take(int), public.ai_left() to authenticated;
