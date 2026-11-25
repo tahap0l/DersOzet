@@ -11,9 +11,10 @@ Geliştiren: **Esat Taha Polat** ([@tahap0l](https://github.com/tahap0l))
 - **Hesap:** Google ya da e-postayla giriş. Program ve işaretler her cihazda aynı.
 - **Bugün:** YKS'ye kalan gün, günlük seri, bugünkü görevler ve o günün konularını hatırlatan, konulardan soru soran maskot **Mürek**.
 - **Dershane:** Hoca dershaneyi ve sınıfları kurar, sınıf kodunu öğrencilere verir, Excel programını ya da kendi yazdığı haftayı sınıfa veya tek öğrenciye gönderir ve ilerlemeyi görür. Program öğrencinin uygulamasına kendiliğinden düşer.
-- **Odalar:** Dershane ya da kodla girilen arkadaş odalarında ortak odak sayacı, sohbet, isteğe bağlı ses ve görüntü (WebRTC). Şikâyet, sessize alma ve odadan çıkarma var.
+- **Odalar:** Dershane ya da kodla girilen arkadaş odalarında ortak odak sayacı, sohbet, isteğe bağlı ses ve görüntü (WebRTC). Şikâyet, sessize alma ve odadan çıkarma var. Odadan başka sayfaya geçince bağlantı kopmaz; üstteki şeritten mikrofonu açıp kapatabilir, odaya dönebilir ya da çıkabilirsin.
 - **Program:** Koçunun gönderdiği Excel programını yükle (birden fazla hafta aynı anda), görevlerini kendin yaz ya da düzenle. Görevler konu kitaplığıyla otomatik eşleşir.
 - **Kişiye özel program:** Derslerdeki seviyeni, hafta içi ve hafta sonu boş zamanını, dershane günlerini ve deneme sayısını seç. Yanlış defterin ve son haftalarda bitirdiğin konular da hesaba katılır; yapay zekâ programı neden böyle kurduğunu da anlatır. Yapay zekâsız Hızlı plan da aynı bilgileri kullanır.
+- **Konu videoları:** Program hazırlanınca her konuya YouTube'dan yeni ve çok izlenen bir konu anlatımı eklenir (Shorts ve çok eski videolar elenir). Profil > YouTube hocaların'dan her ders için en fazla 3 kanal seçersen önce onların videoları gelir. Görevdeki "YouTube'da izle" düğmesi videoyu doğrudan açar; dershaneden gelen izleme görevlerinde "YouTube'da aç" videoyu bulup açar. Arama API anahtarsız çalışır (`functions/api/yt.js`).
 - **Soru sor:** Asistan'da Mürek'e yazıyla ya da sorunun fotoğrafını çekerek soru sor; çözüm adım adım, yazılırken ekrana akar.
 - **Kitaplık:** Hazır YKS konu özetleri (konu anlatımı, formüller, kavramlar, sık yapılan hatalar, çözümlü sorular). Türkçe karakter yazmadan arayabilirsin.
 - **Odak:** Odak ve mola sayacı (25/5 ya da kendi sürelerin), kronometre, son 7 günün odak grafiği. Sayaç ve kronometre hesapta durur; telefonda ve bilgisayarda aynı anda akar.
@@ -96,6 +97,8 @@ app/js/ai.js               sunucu yapay zekâsı, WebLLM, Ollama ve Claude bağl
 app/js/chat.js             Asistan > Soru sor (yazılı ve fotoğraflı soru)
 app/js/plan.js             kişiye özel haftalık program
 functions/api/ai.js        Cloudflare Workers AI'a giden sunucu fonksiyonu
+functions/api/yt.js        YouTube'da konu videosu arayan sunucu fonksiyonu
+app/js/youtube.js          görevlere video, hoca seçimi
 app/js/llm-worker.js       modeli arka planda çalıştıran işçi
 app/js/pdf.js              PDF oluşturma
 app/data/library.json      konu özetleri kitaplığı

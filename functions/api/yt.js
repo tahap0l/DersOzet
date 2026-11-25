@@ -66,6 +66,7 @@ async function search(q){
   return parse(await r.text());
 }
 
+const isMine = (v, teachers) => { const c = norm(v.ch), u = norm(v.chUrl); return teachers.some(t => c.includes(t) || u.includes(t) || (c.length >= 6 && t.includes(c))); };
 function score(v, teachers){
   let s = Math.log10(v.views + 10) * 2;
   const d = v.days == null ? 900 : v.days;
@@ -75,7 +76,7 @@ function score(v, teachers){
   if (v.sec > 4 * 3600) s -= 3;
   if (v.live) s -= 4;
   if (/konu anlat|ders|tyt|ayt|yks/i.test(v.title)) s += 1;
-  if (teachers.some(t => norm(v.ch).includes(t) || norm(v.chUrl).includes(t))) s += 8;
+  if (isMine(v, teachers)) s += 8;
   return s;
 }
 
@@ -92,7 +93,7 @@ export async function onRequestGet({ request }){
     const lists = await Promise.all(jobs.map(p => p.catch(() => [])));
     const all = new Map();
     lists.flat().forEach(v => { if (!all.has(v.id)) all.set(v.id, v); });
-    const list = Array.from(all.values()).map(v => Object.assign(v, { score: score(v, tn), mine: tn.some(t => norm(v.ch).includes(t) || norm(v.chUrl).includes(t)) }))
+    const list = Array.from(all.values()).map(v => Object.assign(v, { score: score(v, tn), mine: isMine(v, tn) }))
       .filter(v => v.sec >= 240 && !v.live).sort((a, b) => b.score - a.score).slice(0, 8)
       .map(({ id, title, ch, chUrl, age, days, views, len, mine }) => ({ id, title, ch, chUrl, age, days, views, len, mine }));
     return json({ q, videos: list }, 200, list.length ? 'public, max-age=21600' : 'no-store');

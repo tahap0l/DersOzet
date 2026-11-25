@@ -125,7 +125,7 @@ function taskRow(wk, t){
     : `<a class="tlink soft" href="#/asistan/ozet/${encodeURIComponent((t.subject || '') + '|' + t.topic)}">Özet çıkar</a>`;
   return `<li class="task${t.done ? ' done' : ''}" style="--c:${subjColor(t.subject)}">
     <label class="check"><input type="checkbox" data-done="${wk}|${esc(t.id)}"${t.done ? ' checked' : ''} aria-label="${esc(t.label || t.text)} tamamlandı"><span class="box" aria-hidden="true"></span></label>
-    <div class="task-b"><p class="task-t">${esc(t.label || sentence(t.text))}</p>${t.subject || link || t.src === 'dershane' ? `<div class="task-m">${chip(t.subject)}${t.src === 'dershane' ? `<span class="from-sc" title="${esc(t.school || 'Dershane')}">${I.school}Dershane</span>` : ''}${link}</div>` : ''}</div>
+    <div class="task-b"><p class="task-t">${esc(t.label || sentence(t.text))}</p>${(() => { const vid = typeof taskVideoHTML === 'function' ? taskVideoHTML(wk, t) : ''; return t.subject || link || vid || t.src === 'dershane' ? `<div class="task-m">${chip(t.subject)}${t.src === 'dershane' ? `<span class="from-sc" title="${esc(t.school || 'Dershane')}">${I.school}Dershane</span>` : ''}${link}${vid}</div>` : ''; })()}</div>
     <button class="icon-btn ghost" data-act="edit" data-k="${wk}|${esc(t.id)}" aria-label="Görevi düzenle">${I.dots}</button>
   </li>`;
 }
@@ -414,6 +414,7 @@ function profileView(){
     <li><button data-act="p-why"><span>Neden çalışıyorum?</span><span class="mv">${p.why ? esc(p.why) : 'Kendine bir not yaz'}</span></button></li>
     <li><button data-act="p-date"><span>YKS tarihi</span><span class="mv">${yd.getDate()} ${MONTHS[yd.getMonth()]} ${yd.getFullYear()}${p.yks ? '' : ' (tahmini)'}</span></button></li>
     ${ENV === 'artifact' ? '' : `<li><button data-act="city"><span>Şehir</span><span class="mv">${c ? esc(c.name) : 'Seçilmedi'}</span></button></li>`}
+    ${ENV === 'artifact' ? '' : `<li><button data-act="yt-teach"><span>YouTube hocaların</span><span class="mv">${(() => { const n = Object.values(p.teachers || {}).flat().length; return n ? n + ' kanal' : 'Seçilmedi'; })()}</span></button></li>`}
     <li><button data-act="p-palette"><span>Tema rengi</span><span class="mv"><span class="sw-mini" style="--a:${paletteOf(p.palette).sw[0]}"></span>${esc(paletteOf(p.palette).name)}</span></button></li>
     <li><button data-act="p-theme"><span>Açık ya da koyu</span><span class="mv">${theme}</span></button></li>
     <li><button data-act="p-sound"><span>Sayaç sesi</span><span class="mv">${p.sound === false ? 'Kapalı' : 'Açık'}</span></button></li>
@@ -685,6 +686,7 @@ function render(){
   app.innerHTML = v();
   renderNav(route.page !== 'oda');
   if (v.after) v.after();
+  if (typeof roomMiniPaint === 'function') roomMiniPaint();
   profileNudge();
   checkBadges();
   pmPaint(); swPaint();
@@ -1065,7 +1067,9 @@ const ACT = {
   'pl-add': () => {
     const wk = ui.plan.next ? wkKey(addDays(fromKey(thisWeek()), 7)) : thisWeek();
     const w = DB.ensureWeek(wk);
-    ui.planDraft.forEach(t => w.tasks.push({ id: 'p' + uid(), day: t.day, text: t.text, label: t.text, type: guessTask(t.text).type, subject: t.subject, topic: t.topic, done: false, src: 'plan' }));
+    ui.planDraft.forEach(t => { const x = { id: 'p' + uid(), day: t.day, text: t.text, label: t.text, type: guessTask(t.text).type, subject: t.subject, topic: t.topic, done: false, src: 'plan' };
+      const v = typeof YT !== 'undefined' && ui.plan.videos !== false && YT.wants(x) ? YT.of(x) : null; if (v){ x.vid = v.id; x.vt = v.title; x.vc = v.ch; }
+      w.tasks.push(x); });
     const n = ui.planDraft.length; ui.planDraft = null; ui.planWhy = ''; DB.d.stats.plans = (DB.d.stats.plans || 0) + 1; DB.save();
     ui.week = wk; ui.day = wk === thisWeek() ? todayIdx() : 0; go('#/program'); toast(n + ' görev programa eklendi');
   },
@@ -1151,7 +1155,7 @@ document.addEventListener('input', e => {
 });
 window.addEventListener('hashchange', () => {
   parseRoute(); closeSheet();
-  if (Room.id && !(route.page === 'oda' && route.arg === Room.id)) Room.leave();
+  // odadan başka sayfaya geçmek odadan çıkmak değildir; yalnızca Çık düğmesi çıkarır
   if (route.page === 'odalar') RL.list = null;
   render(); window.scrollTo(0, 0);
 });

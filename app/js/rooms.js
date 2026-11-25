@@ -104,7 +104,25 @@ const Room = {
     if (ch){ try { await ch.untrack(); } catch(e){} try { await Cloud.sb.removeChannel(ch); } catch(e){} }
     if (this.wake){ try { this.wake.release(); } catch(e){} this.wake = null; }
     this.id = null; this.room = null;
+    this.syncAudio(); roomMiniPaint();
     if (!silent) RL.list = null;
+  },
+
+  /* --- sesler sayfadan bağımsız çalar: odadan başka sayfaya geçince konuşma kesilmez --- */
+  syncAudio(){
+    const box = document.getElementById('room-audio'); if (!box) return;
+    const want = this.id ? Object.keys(this.peers) : [];
+    $$('audio', box).forEach(a => { if (!want.includes(a.dataset.u)) { a.srcObject = null; a.remove(); } });
+    want.forEach(u => {
+      const P = this.peers[u], tracks = P.stream.getAudioTracks();
+      let a = box.querySelector('audio[data-u="' + u + '"]');
+      if (!tracks.length){ if (a){ a.srcObject = null; a.remove(); } return; }
+      if (!a){ a = document.createElement('audio'); a.dataset.u = u; a.autoplay = true; a.setAttribute('playsinline', ''); box.appendChild(a); }
+      const tid = tracks.map(t => t.id).join(',');
+      if (a.dataset.tid !== tid){ a.srcObject = new MediaStream(tracks); a.dataset.tid = tid; }
+      a.muted = this.muted.has(u);
+      if (a.paused) a.play().catch(() => {});
+    });
   },
 
   me(){ const t = this.room && this.room.timer || {}; return { uid: Cloud.uid, name: DB.d.profile.name || 'Ben', grade: DB.d.profile.grade || '', mic: this.mic, cam: this.cam, st: t.running ? t.mode : 'idle', doing: roomDoing(), music: roomMusic(), at: Date.now() }; },
@@ -149,7 +167,7 @@ const Room = {
     Object.keys(this.peers).forEach(u => { if (!now[u]) this.dropPeer(u); });
     this.present = now;
     if (this.local) this.others().slice(0, this.cap()).forEach(u => this.peer(u));
-    this.paintGrid();
+    this.paintGrid(); this.syncAudio(); roomMiniPaint();
   },
   others(){ return Object.keys(this.present).filter(u => u !== Cloud.uid).sort(); },
   cap(){ return (window.DO_CONFIG || {}).maxVideoPeers || 8; },
@@ -169,13 +187,13 @@ const Room = {
       P.stream.getTracks().filter(x => x.kind === tr.kind).forEach(x => P.stream.removeTrack(x));
       P.stream.addTrack(tr);
       tr.onunmute = () => this.paintTile(uid); tr.onmute = () => this.paintTile(uid); tr.onended = () => { P.stream.removeTrack(tr); this.paintTile(uid); };
-      this.paintTile(uid, true);
+      this.paintTile(uid, true); this.syncAudio();
     };
     pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed'){ try { pc.restartIce(); } catch(e){} } this.paintTile(uid); };
     if (this.local) this.local.getTracks().forEach(t => pc.addTrack(t, this.local));
     return P;
   },
-  dropPeer(uid){ const P = this.peers[uid]; if (!P) return; try { P.pc.close(); } catch(e){} delete this.peers[uid]; },
+  dropPeer(uid){ const P = this.peers[uid]; if (!P) return; try { P.pc.close(); } catch(e){} delete this.peers[uid]; this.syncAudio(); },
   send(to, data){ if (this.ch) this.ch.send({ type: 'broadcast', event: 'sig', payload: Object.assign({ from: Cloud.uid, to }, data) }); },
   async onSignal(s){
     if (!s || s.to !== Cloud.uid || !s.from || s.from === Cloud.uid) return;
@@ -299,7 +317,7 @@ const Room = {
     const hasVideo = !!stream && stream.getVideoTracks().some(t => t.readyState === 'live' && !t.muted) && (self ? this.cam : info.cam);
     if (stream && v.srcObject !== stream){ v.srcObject = stream; }
     if (stream && (fresh || v.paused)) v.play().catch(() => {});
-    v.muted = self || this.muted.has(u);
+    v.muted = true; // ses #room-audio içindeki ayrı oynatıcılardan gelir
     el.classList.toggle('has-video', hasVideo);
     el.classList.toggle('self', self);
     el.classList.toggle('mirror', self && this.front);
@@ -337,6 +355,7 @@ const Room = {
     if (c){ c.classList.toggle('on', this.cam); c.innerHTML = (this.cam ? I.cam : I.camOff) + `<span>${this.cam ? 'Kamera açık' : 'Kamera'}</span>`; c.setAttribute('aria-pressed', this.cam); }
     if (ch){ ch.classList.toggle('on', this.tab === 'chat'); ch.innerHTML = I.chat + `<span>${this.tab === 'chat' ? 'Görüntü' : 'Sohbet'}</span>` + (this.unread ? `<b class="badge-n">${this.unread}</b>` : ''); }
     const r = $('#room'); if (r) r.dataset.tab = this.tab;
+    roomMiniPaint();
   }
 };
 
@@ -347,7 +366,7 @@ function roomView(){
   const r = Room.room;
   return `<div id="room" class="room" data-tab="${Room.tab}">
     <header class="room-top">
-      <button class="icon-btn" data-act="rm-leave" aria-label="Odadan çık">${I.back}</button>
+      <button class="icon-btn" data-act="rm-away" aria-label="Geri dön (odada kalırsın)" title="Geri dön; odadan çıkmazsın, sesler devam eder">${I.back}</button>
       <div class="rt-b"><h1>${esc(r.name)}</h1><p class="hint"><span id="rm-count">1 kişi</span> · <button class="code-chip doing" data-act="rm-doing">${esc(roomDoing() || 'Ne çalışıyorsun?')}</button>${r.code ? ` · kod <button class="code-chip" data-act="rm-share">${esc(r.code)}</button>` : ''}<span id="rm-status"></span></p></div>
       <button class="icon-btn" data-act="rm-menu" aria-label="Oda seçenekleri">${I.dots}</button>
     </header>
@@ -437,6 +456,8 @@ Object.assign(ACT, {
     $('#rj-c', box).addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
   },
   'rm-leave': () => { Room.leave(); go('#/odalar'); },
+  'rm-away': () => { const h = ui.prevHash; go(h && !/#\/oda\//.test(h) && h !== '#/' ? h : '#/odalar'); },
+  'rmini-mic': () => ACT['rc-mic'] && ACT['rc-mic'](),
   'rc-mic': () => Room.setMedia('mic', !Room.mic),
   'rc-cam': () => Room.setMedia('cam', !Room.cam),
   'rc-chat': () => { Room.tab = Room.tab === 'chat' ? 'grid' : 'chat'; if (Room.tab === 'chat') Room.unread = 0; Room.paintCtl(); Room.paintChat(); if (Room.tab === 'chat'){ const i = $('#rc-in'); if (i) i.focus({ preventScroll: true }); } },
@@ -484,7 +505,7 @@ Object.assign(ACT, {
       ${Room.mod ? '<li><button data-k="kick" class="danger"><span>Odadan çıkar</span><span class="mv">Bir daha giremez</span></button></li>' : ''}</ul>`);
     box.addEventListener('click', async e => {
       const b = e.target.closest('[data-k]'); if (!b) return; const k = b.dataset.k; closeSheet();
-      if (k === 'mute'){ Room.muted.has(u) ? Room.muted.delete(u) : Room.muted.add(u); Room.paintTile(u); }
+      if (k === 'mute'){ Room.muted.has(u) ? Room.muted.delete(u) : Room.muted.add(u); Room.paintTile(u); Room.syncAudio(); }
       if (k === 'report') reportSheet(u);
       if (k === 'kick'){
         try { await Cloud.rpc('kick_from_room', { p_room: Room.id, p_user: u }); if (Room.ch) Room.ch.send({ type: 'broadcast', event: 'kick', payload: { uid: u } }); Room.dropPeer(u); toast((p.name || 'Kişi') + ' odadan çıkarıldı'); }
@@ -551,3 +572,24 @@ function roomDoingSheet(){
 }
 ACT['rm-doing'] = () => roomDoingSheet();
 setInterval(() => { if (Room.id && Room.ch) Room.retrack(); }, 4000);
+
+/* odadan başka sayfaya geçince üstte küçük bir şerit: odadasın, sesler açık */
+function roomMiniHTML(){
+  if (!Room.id || !Room.room || route.page === 'oda') return '';
+  const n = 1 + Room.others().length;
+  return `<div class="rmini" id="rmini" role="status">
+    <span class="rmini-dot" aria-hidden="true"></span>
+    <a class="rmini-b" href="#/oda/${Room.id}"><strong>${esc(Room.room.name)}</strong><span id="rmini-n">${n} kişi · odadasın</span></a>
+    <button class="icon-btn sm${Room.mic ? ' on' : ''}" data-act="rmini-mic" aria-pressed="${Room.mic}" aria-label="${Room.mic ? 'Mikrofonu kapat' : 'Mikrofonu aç'}">${Room.mic ? I.mic : I.micOff}</button>
+    <a class="btn sm" href="#/oda/${Room.id}">Dön</a>
+    <button class="btn sm danger" data-act="rm-leave" aria-label="Odadan çık">Çık</button>
+  </div>`;
+}
+function roomMiniPaint(){
+  const old = document.getElementById('rmini');
+  const html = roomMiniHTML();
+  if (!html){ if (old) old.remove(); return; }
+  const app = document.getElementById('app'); if (!app) return;
+  if (old) old.outerHTML = html; else app.insertAdjacentHTML('afterbegin', html);
+}
+window.addEventListener('hashchange', e => { if (/#\/oda\//.test(location.hash) && e.oldURL && !/#\/oda\//.test(e.oldURL)){ const i = e.oldURL.indexOf('#'); ui.prevHash = i >= 0 ? e.oldURL.slice(i) : ''; } });

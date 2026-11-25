@@ -91,6 +91,10 @@ function planFormHTML(){
     <div class="chips-row wrap">${DAYS_S.map((d, i) => `<button class="fchip${P.busy.includes(i) ? ' on' : ''}" data-act="pl-busy" data-i="${i}"${P.days.includes(i) ? '' : ' disabled'}>${d}</button>`).join('')}</div>
     <p class="hint">Bu günlere daha az görev konur.</p>
 
+    <h2 class="f-h">Konu videoları</h2>
+    <label class="pm-vid"><input type="checkbox" id="pl-vid"${P.videos !== false ? ' checked' : ''}> Her konuya YouTube'dan yeni ve çok izlenen bir konu anlatımı ekle</label>
+    ${P.videos !== false ? `<div class="pm-teach"><p class="hint">${(() => { const l = P.subjects.map(s => YT.teachers(s).map(n => n + ' (' + s + ')')).flat(); return l.length ? 'Önce şu hocaların videoları gelir: ' + esc(l.join(', ')) : 'Sevdiğin hocaları seçersen önce onların videoları gelir.'; })()}</p><button class="btn sm" data-act="yt-teach">${YT_IC}Hocalarını seç</button></div>` : ''}
+
     <h2 class="f-h">Haftada kaç deneme?</h2>
     <div class="seg small">${[[0, 'Yok'], [1, '1'], [2, '2']].map(([v, n]) => `<button class="seg-b${P.exams === v ? ' on' : ''}" data-act="pl-exam" data-v="${v}">${n}</button>`).join('')}</div>
 
@@ -109,7 +113,7 @@ function planFormHTML(){
   ${draft ? `<section class="block draft">
     <div class="block-head"><h2>Önerilen program</h2><span class="hint">${draft.length} görev</span></div>
     ${ui.planWhy ? `<div class="pm-why">${mascotSVG('ok', 40)}<p>${esc(ui.planWhy)}</p></div>` : ''}
-    ${[0, 1, 2, 3, 4, 5, 6].map(di => { const ts = draft.map((t, i) => Object.assign({ i }, t)).filter(t => t.day === di); return ts.length ? `<h3 class="d-day">${DAYS[di]}</h3><ul class="dlist">${ts.map(t => `<li style="--c:${subjColor(t.subject)}">${t.subject ? chip(t.subject) : ''}<span>${esc(t.text)}</span><button class="icon-btn ghost sm" data-act="pl-rm" data-i="${t.i}" aria-label="Bu görevi çıkar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></li>`).join('')}</ul>` : ''; }).join('')}
+    ${[0, 1, 2, 3, 4, 5, 6].map(di => { const ts = draft.map((t, i) => Object.assign({ i }, t)).filter(t => t.day === di); return ts.length ? `<h3 class="d-day">${DAYS[di]}</h3><ul class="dlist">${ts.map(t => `<li style="--c:${subjColor(t.subject)}">${t.subject ? chip(t.subject) : ''}<span class="d-txt">${esc(t.text)}${draftVid(t)}</span><button class="icon-btn ghost sm" data-act="pl-rm" data-i="${t.i}" aria-label="Bu görevi çıkar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></li>`).join('')}</ul>` : ''; }).join('')}
     <div class="row"><button class="btn primary" data-act="pl-add">Programa ekle</button><button class="btn" data-act="pl-clear">Vazgeç</button></div>
   </section>` : ''}`;
 }
@@ -221,6 +225,19 @@ function planFromJSON(j){
 }
 const planWhyOf = j => j && typeof (j.aciklama || j.explanation) === 'string' ? String(j.aciklama || j.explanation).trim().slice(0, 600) : '';
 
+function draftVid(t){
+  if (!YT.wants(t) || (ui.plan && ui.plan.videos === false)) return '';
+  const v = YT.of(t);
+  if (v) return `<a class="d-vid" href="${ytUrl(v.id)}" target="_blank" rel="noopener">${YT_IC}<span>${esc(v.ch || 'YouTube')}${v.len ? ' · ' + esc(v.len) : ''}${v.age ? ' · ' + esc(v.age) : ''}</span></a>`;
+  return ui.vidBusy ? '<span class="d-vid wait">Video aranıyor…</span>' : '';
+}
+function planVideos(){
+  if (!ui.planDraft || (ui.plan && ui.plan.videos === false) || ENV === 'artifact') return;
+  ui.vidBusy = true;
+  const paint = () => { if (route.page === 'asistan' && (route.arg || '') === 'plan' && !ui.busy) render(); };
+  let last = 0;
+  YT.fill(ui.planDraft, () => { const n = Date.now(); if (n - last > 400){ last = n; paint(); } }).then(() => { ui.vidBusy = false; paint(); });
+}
 const planCheck = () => { const P = planOptions(); if (!P.subjects.length || !P.days.length){ toast('En az bir ders ve bir gün seç.'); return null; } return P; };
 Object.assign(ACT, {
   'pl-subj': el => { const P = ui.plan, s = el.dataset.s; P.subjects = P.subjects.includes(s) ? P.subjects.filter(x => x !== s) : P.subjects.concat([s]); planOptions(); render(); },
@@ -229,10 +246,11 @@ Object.assign(ACT, {
   'pl-busy': el => { const P = ui.plan, i = Number(el.dataset.i); P.busy = P.busy.includes(i) ? P.busy.filter(x => x !== i) : P.busy.concat([i]); planOptions(); render(); },
   'pl-exam': el => { ui.plan.exams = Number(el.dataset.v); planOptions(); render(); },
   'pl-week': el => { ui.plan.next = el.dataset.v === '1'; planOptions(); render(); },
-  'pl-quick': () => { const P = planCheck(); if (!P) return; ui.planWhy = 'Seviyene göre dağıttım: zayıf derslerine daha çok blok koydum, bitirdiğin konuları atladım' + (P.exams ? ', deneme günlerini hafta sonuna yerleştirdim' : '') + '. İstemediğin görevi çarpıyla çıkarabilirsin.'; acceptPlan(quickPlan(P)); },
+  'pl-vid': () => {},
+  'pl-quick': () => { const P = planCheck(); if (!P) return; ui.planWhy = 'Seviyene göre dağıttım: zayıf derslerine daha çok blok koydum, bitirdiğin konuları atladım' + (P.exams ? ', deneme günlerini hafta sonuna yerleştirdim' : '') + '. İstemediğin görevi çarpıyla çıkarabilirsin.'; acceptPlan(quickPlan(P)); planVideos(); },
   'pl-ai': () => { const P = planCheck(); if (!P) return;
-    aiRun(planPrompt(P), j => { const list = planFromJSON(j); if (!list){ render(); toast('Yapay zekâ geçerli bir program yazamadı. Tekrar dene ya da Hızlı plan kullan.'); return; } ui.planWhy = planWhyOf(j); acceptPlan(list); }, { maxTokens: 4000 }); },
-  'pl-ext': () => { const P = planCheck(); if (!P) return; extSheet('Başka bir yapay zekâda oluştur', planPrompt(P), j => { const list = planFromJSON(j); if (!list) return false; ui.planWhy = planWhyOf(j); acceptPlan(list); return true; }); }
+    aiRun(planPrompt(P), j => { const list = planFromJSON(j); if (!list){ render(); toast('Yapay zekâ geçerli bir program yazamadı. Tekrar dene ya da Hızlı plan kullan.'); return; } ui.planWhy = planWhyOf(j); acceptPlan(list); planVideos(); }, { maxTokens: 4000 }); },
+  'pl-ext': () => { const P = planCheck(); if (!P) return; extSheet('Başka bir yapay zekâda oluştur', planPrompt(P), j => { const list = planFromJSON(j); if (!list) return false; ui.planWhy = planWhyOf(j); acceptPlan(list); planVideos(); return true; }); }
 });
 document.addEventListener('input', e => {
   const t = e.target;
@@ -243,4 +261,7 @@ document.addEventListener('input', e => {
   }
   if (t.id === 'pl-note' && ui.plan) ui.plan.note = t.value;
 });
-document.addEventListener('change', e => { if ((e.target.id === 'pl-hwk' || e.target.id === 'pl-hwe') && ui.plan) planOptions(); });
+document.addEventListener('change', e => {
+  if ((e.target.id === 'pl-hwk' || e.target.id === 'pl-hwe') && ui.plan) planOptions();
+  if (e.target.id === 'pl-vid' && ui.plan){ ui.plan.videos = e.target.checked; planOptions(); render(); }
+});
