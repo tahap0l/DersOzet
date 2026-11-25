@@ -94,6 +94,7 @@ const Cloud = {
     await this.flushPush();
     try { await this.sb.auth.signOut(); } catch(e){}
     this.user = null; this.school = []; this.profile = null;
+    if (this.stateCh){ try { this.sb.removeChannel(this.stateCh); } catch(e){} this.stateCh = null; }
     const keep = { ai: DB.d.ai, theme: DB.d.profile.theme };
     DB.d = DB.normalize(DB.blank()); DB.d.ai = keep.ai; DB.d.profile.theme = keep.theme; DB.persist();
   },
@@ -103,20 +104,41 @@ const Cloud = {
     localStorage.removeItem(DB.KEY); this.user = null; DB.load();
   },
 
+  applyRemote(data){
+    const keep = { ai: DB.d.ai, owner: DB.d.owner };
+    DB.d = Object.assign(DB.normalize(data), keep); DB.persist();
+  },
+  /* Aynı hesap başka bir cihazda değişince (görev, sayaç, kronometre) burası anında haber alır. */
+  listenState(){
+    if (this.stateCh || !this.uid) return;
+    this.stateCh = this.sb.channel('state-' + this.uid)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_state', filter: 'user_id=eq.' + this.uid }, p => {
+        const d = p.new && p.new.data;
+        if (d && d.mtime){ if (d.mtime > (DB.d.mtime || 0)){ this.applyRemote(d); this.onRemote(); } }
+        else this.refresh().then(ch => { if (ch) this.onRemote(); });
+      })
+      .subscribe();
+  },
+  onRemote(){
+    if (typeof pmLoop === 'function') pmLoop();
+    if (typeof swLoop === 'function') swLoop();
+    if (!document.querySelector('.sheet-wrap') && route.page !== 'oda') render();
+  },
   async afterLogin(){
     try { await this.pullState(); } catch(e){ console.warn('state', e); }
+    this.listenState();
     try { await this.loadProfile(); } catch(e){}
     try { await this.loadSchool(); } catch(e){}
     try { await this.pullPrograms(); } catch(e){ console.warn('programs', e); }
   },
 
   /* ---------- kişisel verinin eşitlenmesi ---------- */
-  outgoing(){ const d = Object.assign({}, DB.d); delete d.ai; delete d.timer; delete d.sw; delete d.owner; return d; },
+  outgoing(){ const d = Object.assign({}, DB.d); delete d.ai; delete d.owner; return d; },
   async pullState(){
     const me = this.uid; if (!me) return;
     const { data, error } = await this.sb.from('user_state').select('data, updated_at').eq('user_id', me).maybeSingle();
     if (error) throw error;
-    const local = DB.d, keep = { ai: local.ai, timer: local.timer, sw: local.sw };
+    const local = DB.d, keep = { ai: local.ai };
     let push = false;
     if (local.owner && local.owner !== me){
       DB.d = DB.normalize(data ? data.data : DB.blank());
@@ -150,8 +172,7 @@ const Cloud = {
       const { data } = await this.sb.from('user_state').select('data').eq('user_id', this.uid).maybeSingle();
       let changed = false;
       if (data && (data.data.mtime || 0) > (DB.d.mtime || 0)){
-        const keep = { ai: DB.d.ai, timer: DB.d.timer, sw: DB.d.sw, owner: DB.d.owner };
-        DB.d = Object.assign(DB.normalize(data.data), keep); DB.persist(); changed = true;
+        this.applyRemote(data.data); changed = true;
       }
       if (await this.pullPrograms()) changed = true;
       return changed;

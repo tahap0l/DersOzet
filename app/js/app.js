@@ -273,13 +273,13 @@ const MODE_NAME = { focus: 'Odak', brk: 'Kısa mola', long: 'Uzun mola' };
 const pmFmt = s => { s = Math.max(0, Math.round(s)); return pad(Math.floor(s / 60)) + ':' + pad(s % 60); };
 const pmLeft = () => T().running ? (T().endAt - Date.now()) / 1000 : T().left;
 let pmTimer = null, audioCtx = null;
-function pmSetMode(m){ const t = T(); t.mode = m; t.left = modeMins(m) * 60; t.running = false; t.endAt = 0; DB.save(); }
+function pmSetMode(m){ const t = T(); t.mode = m; t.left = modeMins(m) * 60; t.running = false; t.endAt = 0; DB.save(true); }
 function pmStart(){
-  const t = T(); t.running = true; t.endAt = Date.now() + t.left * 1000; DB.save();
+  const t = T(); t.running = true; t.endAt = Date.now() + t.left * 1000; DB.save(true);
   try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch(e){}
   pmLoop();
 }
-function pmPause(){ const t = T(); t.left = Math.max(0, Math.round((t.endAt - Date.now()) / 1000)); t.running = false; DB.save(); pmLoop(); }
+function pmPause(){ const t = T(); t.left = Math.max(0, Math.round((t.endAt - Date.now()) / 1000)); t.running = false; DB.save(true); pmLoop(); }
 function pmLoop(){ clearInterval(pmTimer); pmTimer = null; if (T().running) pmTimer = setInterval(pmTick, 500); pmPaint(); }
 function beep(){
   if (DB.d.profile.sound !== false && audioCtx){ try { [0, .3, .6].forEach(s => { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.value = 784; g.gain.setValueAtTime(.18, audioCtx.currentTime + s); g.gain.exponentialRampToValueAtTime(.001, audioCtx.currentTime + s + .25); o.start(audioCtx.currentTime + s); o.stop(audioCtx.currentTime + s + .26); }); } catch(e){} }
@@ -301,7 +301,7 @@ function pmTick(){
       pmSetMode(t.rounds % 4 === 0 ? 'long' : 'brk');
       toast('Odak turu bitti. Şimdi mola.');
     } else { pmSetMode('focus'); toast('Mola bitti. Hazırsan devam.'); }
-    beep(); DB.save();
+    beep(); DB.save(true);
     if (route.page === 'odak' || route.page === 'bugun') render();
     return pmLoop();
   }
@@ -330,7 +330,7 @@ function swSave(){
   const min = Math.floor(swMs() / 60000);
   const w = SW(); w.running = false; w.acc = 0; w.startAt = 0;
   if (min >= 1){ bump(dayKey(), 'focus', min); toast(min + ' dakika çalışma kaydedildi.'); } else toast('1 dakikadan kısa olduğu için kaydedilmedi.');
-  DB.save(); swLoop(); render();
+  DB.save(true); swLoop(); render();
 }
 function focusView(){
   const t = T();
@@ -919,9 +919,9 @@ const ACT = {
   'topic-del': el => { if (el.dataset.armed !== '1'){ el.dataset.armed = '1'; el.textContent = 'Tekrar bas'; return; } delete DB.d.userSums[route.arg]; DB.save(); go('#/kitaplik'); toast('Özet silindi'); },
   'pm-go': () => { T().running ? pmPause() : pmStart(); },
   'f-mode': el => { ui.fmode = el.dataset.m; render(); },
-  'sw-go': () => { const w = SW(); if (w.running){ w.acc += Date.now() - w.startAt; w.running = false; } else { w.running = true; w.startAt = Date.now(); } DB.persist(); swLoop(); render(); },
+  'sw-go': () => { const w = SW(); if (w.running){ w.acc += Date.now() - w.startAt; w.running = false; } else { w.running = true; w.startAt = Date.now(); } DB.save(true); swLoop(); render(); },
   'sw-save': () => swSave(),
-  'sw-reset': el => { if (el.dataset.armed !== '1'){ el.dataset.armed = '1'; el.textContent = 'Kaydetmeden sıfırla?'; return; } const w = SW(); w.running = false; w.acc = 0; w.startAt = 0; DB.persist(); swLoop(); render(); },
+  'sw-reset': el => { if (el.dataset.armed !== '1'){ el.dataset.armed = '1'; el.textContent = 'Kaydetmeden sıfırla?'; return; } const w = SW(); w.running = false; w.acc = 0; w.startAt = 0; DB.save(true); swLoop(); render(); },
   'l-google': async () => { login.busy = true; render(); try { await Cloud.google(); } catch(e){ login.busy = false; login.err = AUTH_ERR(e); render(); } },
   'l-mode': el => { login.mode = el.dataset.m; login.err = ''; login.info = ''; const e = $('#l-e'); if (e) login.email = e.value.trim(); render(); },
   'l-eye': () => { $$('#l-p, #l-p2').forEach(i => { i.type = i.type === 'password' ? 'text' : 'password'; }); },
@@ -1120,7 +1120,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden){ if (Cloud.uid) Cloud.flushPush(); return; }
   if (T().running) pmTick();
   if (route.page === 'bugun') render();
-  if (Cloud.uid && Date.now() - lastRefresh > 20000){ lastRefresh = Date.now(); Cloud.refresh().then(ch => { if (ch && !sheetEl && route.page !== 'oda') render(); }); }
+  if (Cloud.uid && Date.now() - lastRefresh > 3000){ lastRefresh = Date.now(); Cloud.refresh().then(ch => { if (ch && !sheetEl && route.page !== 'oda') render(); }); }
 });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 

@@ -7,7 +7,7 @@
  */
 'use strict';
 
-const APP = { name: 'Ders Özetim', author: 'Esat Taha Polat', repo: 'https://github.com/tahap0l/DersOzet', version: '3.1.0' };
+const APP = { name: 'Ders Özetim', author: 'Esat Taha Polat', repo: 'https://github.com/tahap0l/DersOzet', version: '3.2.0' };
 const ENV = window.DO_ENV || 'web'; // 'web': Cloudflare / GitHub sürümü, 'artifact': claude.ai yapıtı
 const CAP = { sample: null, downloads: null };
 
@@ -295,10 +295,10 @@ const DB = {
     if (!d){ d = this.blank(); this.migrateV3(d); }
     this.d = this.normalize(d);
   },
-  save(){
+  save(urgent){
     this.d.mtime = Date.now();
     Sync.schedule();
-    if (typeof Cloud !== 'undefined' && Cloud.uid) Cloud.schedulePush();
+    if (typeof Cloud !== 'undefined' && Cloud.uid) Cloud.schedulePush(urgent ? 0 : undefined);
     return this.persist();
   },
   persist(){
