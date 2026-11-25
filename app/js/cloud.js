@@ -34,7 +34,8 @@ const Cloud = {
       const was = this.uid;
       this.user = s ? s.user : null;
       if (ev === 'SIGNED_OUT'){ this.school = []; this.profile = null; render(); return; }
-      if (this.uid && this.uid !== was) setTimeout(() => this.afterLogin().then(() => { if (location.hash.includes('access_token')) history.replaceState(null, '', location.pathname + '#/bugun'); parseRoute(); render(); }), 0);
+      if (ev === 'PASSWORD_RECOVERY'){ this.recovery = true; setTimeout(() => { if (DB.d.onboarded) pwSheet(); }, 400); }
+      if (this.uid && this.uid !== was && !this.inLogin) setTimeout(() => this.afterLogin().then(() => { if (location.hash.includes('access_token')) history.replaceState(null, '', location.pathname + '#/bugun'); parseRoute(); render(); }), 0);
     });
     if (this.user) await this.afterLogin();
     this.booting = false;
@@ -50,6 +51,30 @@ const Cloud = {
     const { data, error } = await this.sb.auth.verifyOtp({ email, token, type: 'email' });
     if (error) throw error;
     return data;
+  },
+  async signUp(email, password){
+    const { data, error } = await this.sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } });
+    if (error) throw error;
+    if (data && data.user && Array.isArray(data.user.identities) && !data.user.identities.length) throw new Error('already registered');
+    return data;
+  },
+  async signIn(email, password){
+    const { data, error } = await this.sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return data;
+  },
+  async resetPassword(email){
+    const { error } = await this.sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+    if (error) throw error;
+  },
+  async setPassword(password){
+    const { error } = await this.sb.auth.updateUser({ password });
+    if (error) throw error;
+  },
+  needsPassword(){
+    const u = this.user; if (!u || DB.d.profile.pwSet) return false;
+    const prov = (u.app_metadata && u.app_metadata.providers) || [];
+    return !prov.includes('email');
   },
   async google(){
     const { error } = await this.sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } });

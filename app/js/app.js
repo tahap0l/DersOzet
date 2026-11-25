@@ -35,6 +35,7 @@ const I = {
   chat: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v10H9l-5 4Z"/></svg>',
   send: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12 20 4l-6 16-3-7Z"/></svg>',
   leave: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14M10 8l-4 4 4 4M6 12h10"/></svg>',
+  eye: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/></svg>',
   watch: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5l3-3M10 2.5h4"/></svg>',
   spark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8L12 17.5l-1.8-5.2L5 10.5l5.2-1.8Z"/><path d="M18.5 16l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7Z"/></svg>'
 };
@@ -395,6 +396,7 @@ function profileView(){
   ${Cloud.uid ? `<h2 class="menu-h">Hesap</h2>
   <ul class="menu">
     <li><div class="mi"><span>Giriş</span><span class="mv">${esc(Cloud.user.email || '')}</span></div></li>
+    <li><button data-act="pw-set"><span>${DB.d.profile.pwSet ? 'Şifreni değiştir' : 'Şifre belirle'}</span><span class="mv">${DB.d.profile.pwSet ? '' : 'Diğer cihazlarda e-posta ve şifreyle gir'}</span></button></li>
     <li><button data-act="sign-out"><span>Çıkış yap</span></button></li>
     <li><button data-act="acct-del" class="danger"><span>Hesabımı sil</span></button></li>
   </ul>
@@ -510,53 +512,77 @@ function aiSettingsHTML(){
 }
 
 /* ---------- giriş ---------- */
-const login = { step: 'start', email: '', err: '', busy: false };
+const login = { mode: 'in', email: '', err: '', info: '', busy: false };
+const AUTH_ERR = e => {
+  const m = (e && e.message) || '';
+  if (/invalid login credentials/i.test(m)) return 'E-posta ya da şifre yanlış.';
+  if (/already registered|already been registered|exists/i.test(m)) return 'Bu e-postayla zaten bir hesap var. Giriş yap sekmesinden gir.';
+  if (/password should be|at least/i.test(m)) return 'Şifre en az 6 karakter olmalı.';
+  if (/email not confirmed/i.test(m)) return 'E-posta adresin henüz onaylanmamış.';
+  if (/rate|limit|seconds/i.test(m)) return 'Çok sık denendi. Bir dakika bekleyip tekrar dene.';
+  if (/provider is not enabled|unsupported provider/i.test(m)) return 'Google ile giriş henüz açılmadı. Şimdilik e-posta ve şifreyle devam et.';
+  return 'Olmadı. İnternet bağlantını kontrol edip tekrar dene.';
+};
 function loginView(){
-  const L = login;
+  const L = login, up = L.mode === 'up';
   return `<main class="welcome login">
-    <div class="w-mascot">${mascotSVG(L.step === 'code' ? 'think' : 'ok', 96)}</div>
+    <div class="w-mascot">${mascotSVG(L.busy ? 'think' : 'ok', 96)}</div>
     <h1>Ders Özetim</h1>
     <p class="w-lede">Programın, konu özetlerin, odak sayacın ve ders arkadaşların tek yerde. Telefonda, tablette ve dershanede aynı hesap.</p>
-    ${L.step === 'code' ? `<form id="l-code" class="w-form">
-      <p><strong>${esc(L.email)}</strong> adresine bir giriş e-postası gönderdik. İçindeki bağlantıya <strong>bu cihazda</strong> dokun, uygulama kendiliğinden açılır. Gelmediyse gereksiz klasörüne bak.</p>
-      <label class="f-h" for="l-c">E-postada kod varsa buraya yaz</label>
-      <input id="l-c" class="input code-in" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456">
-      <p class="err" role="alert">${esc(L.err)}</p>
-      <button class="btn primary lg" type="submit"${L.busy ? ' disabled' : ''}>${L.busy ? 'Kontrol ediliyor…' : 'Kodla giriş yap'}</button>
-      <button class="link" type="button" data-act="l-back">Başka bir e-posta kullan</button>
-    </form>` : `<div class="w-form">
-      <button class="btn lg google" data-act="l-google"${L.busy ? ' disabled' : ''}><svg viewBox="0 0 24 24" aria-hidden="true" style="stroke:none"><path fill="#4285F4" d="M22.5 12.2c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8Z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.2-2.7l-3.5-2.7c-1 .7-2.2 1.1-3.7 1.1-2.9 0-5.3-1.9-6.2-4.5H2.2v2.8A11 11 0 0 0 12 23Z"/><path fill="#FBBC05" d="M5.8 14.2a6.6 6.6 0 0 1 0-4.3V7.1H2.2a11 11 0 0 0 0 9.9l3.6-2.8Z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3 .6 4.2 1.6l3.1-3.1A11 11 0 0 0 2.2 7.1l3.6 2.8C6.7 7.3 9.1 5.4 12 5.4Z"/></svg>Google ile devam et</button>
-      <p class="or"><span>ya da</span></p>
-      <form id="l-mail">
-        <label class="f-h" for="l-e">E-posta adresin</label>
+    <div class="w-form">
+      <div class="seg" role="tablist" aria-label="Giriş ya da hesap açma"><button class="seg-b${up ? '' : ' on'}" data-act="l-mode" data-m="in" role="tab" aria-selected="${!up}">Giriş yap</button><button class="seg-b${up ? ' on' : ''}" data-act="l-mode" data-m="up" role="tab" aria-selected="${up}">Hesap aç</button></div>
+      <form id="l-form" novalidate>
+        <label class="f-h" for="l-e">E-posta</label>
         <input id="l-e" class="input" type="email" autocomplete="email" inputmode="email" placeholder="ornek@gmail.com" value="${esc(L.email)}" required>
+        <label class="f-h" for="l-p">Şifre</label>
+        <div class="pw"><input id="l-p" class="input" type="password" autocomplete="${up ? 'new-password' : 'current-password'}" minlength="6" placeholder="${up ? 'En az 6 karakter' : 'Şifren'}" required><button type="button" class="pw-eye" data-act="l-eye" aria-label="Şifreyi göster">${I.eye || 'Göster'}</button></div>
+        ${up ? `<label class="f-h" for="l-p2">Şifre tekrar</label><input id="l-p2" class="input" type="password" autocomplete="new-password" minlength="6" required>` : ''}
         <p class="err" role="alert">${esc(L.err)}</p>
-        <button class="btn primary lg" type="submit"${L.busy ? ' disabled' : ''}>${L.busy ? 'Gönderiliyor…' : 'Giriş bağlantısı gönder'}</button>
+        ${L.info ? `<p class="ok-note" role="status">${esc(L.info)}</p>` : ''}
+        <button class="btn primary lg" type="submit"${L.busy ? ' disabled' : ''}>${L.busy ? 'Bekle…' : up ? 'Hesap aç' : 'Giriş yap'}</button>
+        ${up ? '' : '<button class="link" type="button" data-act="l-forgot">Şifremi unuttum</button>'}
       </form>
-      <p class="hint">Şifre yok. E-postana tek kullanımlık bir giriş bağlantısı gelir.</p>
-    </div>`}
+      <p class="or"><span>ya da</span></p>
+      <button class="btn lg google" data-act="l-google"${L.busy ? ' disabled' : ''}><svg viewBox="0 0 24 24" aria-hidden="true" style="stroke:none"><path fill="#4285F4" d="M22.5 12.2c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8Z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.2-2.7l-3.5-2.7c-1 .7-2.2 1.1-3.7 1.1-2.9 0-5.3-1.9-6.2-4.5H2.2v2.8A11 11 0 0 0 12 23Z"/><path fill="#FBBC05" d="M5.8 14.2a6.6 6.6 0 0 1 0-4.3V7.1H2.2a11 11 0 0 0 0 9.9l3.6-2.8Z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3 .6 4.2 1.6l3.1-3.1A11 11 0 0 0 2.2 7.1l3.6 2.8C6.7 7.3 9.1 5.4 12 5.4Z"/></svg>Google ile devam et</button>
+      <p class="hint">Google ile girdiysen Profil sayfasından bir şifre belirle; diğer cihazlarda e-posta ve şifrenle girebilirsin.</p>
+    </div>
     <p class="w-credit">Esat Taha Polat tarafından geliştirildi. Açık kaynak, ücretsiz, reklamsız.</p>
   </main>`;
 }
 function bindLogin(){
-  const m = $('#l-mail');
-  if (m) m.addEventListener('submit', async e => {
+  const f = $('#l-form'); if (!f) return;
+  f.addEventListener('submit', async e => {
     e.preventDefault();
-    const email = $('#l-e').value.trim().toLowerCase();
+    const email = $('#l-e').value.trim().toLowerCase(), pw = $('#l-p').value, up = login.mode === 'up';
+    login.email = email; login.info = '';
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ login.err = 'Geçerli bir e-posta yaz.'; render(); return; }
-    login.email = email; login.busy = true; login.err = ''; render();
-    try { await Cloud.sendCode(email); login.step = 'code'; }
-    catch(err){ login.err = /rate|limit|seconds/i.test(err.message || '') ? 'Şu an çok fazla giriş e-postası gönderildi. Biraz sonra tekrar dene ya da Google ile devam et.' : 'Kod gönderilemedi. İnternet bağlantını kontrol et.'; }
-    login.busy = false; render();
-  });
-  const c = $('#l-code');
-  if (c) c.addEventListener('submit', async e => {
-    e.preventDefault();
-    const code = $('#l-c').value.replace(/\s+/g, '');
-    if (code.length < 6) return;
+    if (pw.length < 6){ login.err = 'Şifre en az 6 karakter olmalı.'; render(); return; }
+    if (up && $('#l-p2').value !== pw){ login.err = 'İki şifre aynı değil.'; render(); return; }
     login.busy = true; login.err = ''; render();
-    try { await Cloud.verifyCode(login.email, code); login.step = 'start'; login.busy = false; await Cloud.afterLogin(); render(); }
-    catch(err){ login.busy = false; login.err = 'Kod yanlış ya da süresi dolmuş. Tekrar dene.'; render(); }
+    Cloud.inLogin = true;
+    try {
+      const r = up ? await Cloud.signUp(email, pw) : await Cloud.signIn(email, pw);
+      login.busy = false;
+      if (up && r && !r.session){ Cloud.inLogin = false; login.mode = 'in'; login.info = 'Hesabın açıldı. E-postana gelen onay bağlantısına dokunduktan sonra buradan giriş yap.'; render(); return; }
+      if (!Cloud.uid && r && r.user) Cloud.user = r.user;
+      DB.d.profile.pwSet = true;
+      await Cloud.afterLogin(); Cloud.inLogin = false; render();
+    } catch(err){ Cloud.inLogin = false; login.busy = false; login.err = AUTH_ERR(err); render(); }
+  });
+}
+
+function pwSheet(after){
+  const box = openSheet(DB.d.profile.pwSet ? 'Şifreni değiştir' : 'Şifre belirle', `<p class="hint">Bu şifreyle başka bir telefonda, tablette ya da bilgisayarda <strong>${esc(Cloud.user && Cloud.user.email || '')}</strong> adresi ve şifrenle girebilirsin.</p>
+    <label class="f-h" for="pw-1">Yeni şifre</label><input id="pw-1" class="input" type="password" autocomplete="new-password" minlength="6" placeholder="En az 6 karakter" autofocus>
+    <label class="f-h" for="pw-2">Şifre tekrar</label><input id="pw-2" class="input" type="password" autocomplete="new-password" minlength="6">
+    <p class="err" id="pw-e" role="alert"></p><div class="row"><button class="btn primary" id="pw-go">Kaydet</button></div>`);
+  $('#pw-go', box).addEventListener('click', async () => {
+    const a = $('#pw-1', box).value, b = $('#pw-2', box).value;
+    if (a.length < 6){ $('#pw-e', box).textContent = 'Şifre en az 6 karakter olmalı.'; return; }
+    if (a !== b){ $('#pw-e', box).textContent = 'İki şifre aynı değil.'; return; }
+    $('#pw-go', box).disabled = true;
+    try { await Cloud.setPassword(a); DB.d.profile.pwSet = true; DB.save(); closeSheet(); toast('Şifren kaydedildi. Diğer cihazlarda e-posta ve şifrenle girebilirsin.'); if (after) after(); else render(); }
+    catch(err){ $('#pw-go', box).disabled = false; $('#pw-e', box).textContent = /same|different/i.test(err.message || '') ? 'Yeni şifre eskisinden farklı olmalı.' : AUTH_ERR(err); }
   });
 }
 
@@ -576,6 +602,9 @@ function welcomeView(){
       <input id="w-goal" class="input" maxlength="60" placeholder="Örn. Bilgisayar Mühendisliği" autocomplete="off">
       ${Cloud.uid && !Cloud.school.length ? `<label class="f-h" for="w-code">Dershane kodun (varsa)</label>
       <input id="w-code" class="input code-in" maxlength="10" placeholder="Hocanın verdiği kod" autocomplete="off" autocapitalize="characters">` : ''}
+      ${Cloud.uid && Cloud.needsPassword() ? `<label class="f-h" for="w-pw">Şifre belirle (isteğe bağlı)</label>
+      <input id="w-pw" class="input" type="password" autocomplete="new-password" minlength="6" placeholder="En az 6 karakter">
+      <p class="hint">Diğer cihazlarda ${esc(Cloud.user.email || '')} ve bu şifreyle girersin.</p>` : ''}
       <p class="err" id="w-e" role="alert"></p>
       <button class="btn primary lg" type="submit">Başla</button>
     </form>
@@ -615,6 +644,11 @@ function render(){
 function bindWelcome(){
   $('#w-form').addEventListener('submit', async e => {
     e.preventDefault();
+    const pw = $('#w-pw') ? $('#w-pw').value : '';
+    if (pw){
+      if (pw.length < 6){ $('#w-e').textContent = 'Şifre en az 6 karakter olmalı ya da boş bırak.'; return; }
+      try { await Cloud.setPassword(pw); DB.d.profile.pwSet = true; } catch(err){ $('#w-e').textContent = AUTH_ERR(err); return; }
+    }
     const code = $('#w-code') ? $('#w-code').value.trim() : '';
     if (code){
       try { await Cloud.joinCode(code); }
@@ -876,11 +910,21 @@ const ACT = {
   'sw-go': () => { const w = SW(); if (w.running){ w.acc += Date.now() - w.startAt; w.running = false; } else { w.running = true; w.startAt = Date.now(); } DB.persist(); swLoop(); render(); },
   'sw-save': () => swSave(),
   'sw-reset': el => { if (el.dataset.armed !== '1'){ el.dataset.armed = '1'; el.textContent = 'Kaydetmeden sıfırla?'; return; } const w = SW(); w.running = false; w.acc = 0; w.startAt = 0; DB.persist(); swLoop(); render(); },
-  'l-google': async () => { login.busy = true; render(); try { await Cloud.google(); } catch(e){ login.busy = false; login.err = 'Google ile giriş şu an açılamadı. E-posta koduyla devam et.'; render(); } },
-  'l-back': () => { login.step = 'start'; login.err = ''; render(); },
+  'l-google': async () => { login.busy = true; render(); try { await Cloud.google(); } catch(e){ login.busy = false; login.err = AUTH_ERR(e); render(); } },
+  'l-mode': el => { login.mode = el.dataset.m; login.err = ''; login.info = ''; const e = $('#l-e'); if (e) login.email = e.value.trim(); render(); },
+  'l-eye': () => { $$('#l-p, #l-p2').forEach(i => { i.type = i.type === 'password' ? 'text' : 'password'; }); },
+  'l-forgot': async () => {
+    const e = $('#l-e'), email = e ? e.value.trim().toLowerCase() : login.email;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ login.err = 'Önce e-posta adresini yaz, sonra Şifremi unuttum\'a bas.'; render(); return; }
+    login.email = email;
+    try { await Cloud.resetPassword(email); login.err = ''; login.info = 'Şifre yenileme bağlantısı e-postana gönderildi. Bağlantıya dokununca yeni şifreni belirleyebileceksin.'; }
+    catch(err){ login.err = AUTH_ERR(err); }
+    render();
+  },
+  'pw-set': () => pwSheet(),
   'sign-out': async el => {
     if (el.dataset.armed !== '1'){ el.dataset.armed = '1'; el.querySelector('span').textContent = 'Çıkış yapılsın mı? Tekrar bas'; return; }
-    if (Room.id) await Room.leave(); await Cloud.signOut(); login.step = 'start'; go('#/bugun'); render();
+    if (Room.id) await Room.leave(); await Cloud.signOut(); login.mode = 'in'; go('#/bugun'); render();
   },
   'acct-del': el => {
     const box = openSheet('Hesabını sil', `<p>Hesabın, programın, özetlerin, dershane üyeliklerin ve yazdığın mesajlar kalıcı olarak silinir. Bu geri alınamaz.</p>
@@ -888,7 +932,7 @@ const ACT = {
       <div class="row"><button class="btn danger" id="ad-go">Hesabımı sil</button></div>`);
     $('#ad-go', box).addEventListener('click', async () => {
       if ($('#ad-t', box).value.trim().toLocaleUpperCase('tr') !== 'SİL') { toast('Onay için SİL yaz.'); return; }
-      try { if (Room.id) await Room.leave(); await Cloud.deleteAccount(); closeSheet(); login.step = 'start'; go('#/bugun'); render(); toast('Hesabın silindi.'); }
+      try { if (Room.id) await Room.leave(); await Cloud.deleteAccount(); closeSheet(); login.mode = 'in'; go('#/bugun'); render(); toast('Hesabın silindi.'); }
       catch(e){ toast('Silinemedi: ' + e.message); }
     });
   },
