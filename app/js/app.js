@@ -51,6 +51,7 @@ const I = {
   notebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18M3 7h4M3 12h4M3 17h4M12 8h4M12 12h4"/></svg>',
   phone: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>',
   play: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3Z" style="fill:currentColor"/></svg>',
+  flask: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 3.5h5M10.5 3.5v5.2L5.3 17.6A2 2 0 0 0 7 20.5h10a2 2 0 0 0 1.7-2.9l-5.2-8.9V3.5"/><path d="M7.6 14.5h8.8"/></svg>',
   spark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8L12 17.5l-1.8-5.2L5 10.5l5.2-1.8Z"/><path d="M18.5 16l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7Z"/></svg>'
 };
 const TABS = [
@@ -60,6 +61,7 @@ const TABS = [
   { id: 'odak', label: 'Odak', icon: I.timer },
   { id: 'defter', label: 'Defter', icon: I.notebook },
   { id: 'kitaplik', label: 'Kitaplık', icon: I.book, rail: true },
+  { id: 'lab', label: 'Laboratuvar', icon: I.flask, rail: true },
   { id: 'dershane', label: 'Dershane', icon: I.school, rail: true },
   { id: 'medya', label: 'Müzik ve video', icon: I.music, rail: true },
   { id: 'admin', label: 'Yönetici', icon: I.shield, rail: true, admin: true },
@@ -281,6 +283,7 @@ function topicView(){
   const tp = { slug, subject: sd.subject, name: sd.name, tasks };
   return `<header class="page-head slim"><button class="back" data-act="back">${I.back}Geri</button>
     <div class="row"><button class="btn sm" data-act="topic-pdf">PDF indir</button>${mine ? '<button class="btn sm danger" data-act="topic-del">Sil</button>' : ''}</div></header>
+    ${typeof simLinksHTML === 'function' ? simLinksHTML(slug) : ''}
     <div class="reader">${topicDocHTML(tp, Object.assign({ mine }, sd), false)}</div>`;
 }
 
@@ -656,7 +659,7 @@ function renderNav(show){
   const active = route.page === 'konu' ? 'kitaplik' : route.page === 'oda' ? 'odalar' : /^(yanlis|not|tekrar)$/.test(route.page) ? 'defter' : route.page === 'kur' ? 'profil' : route.page === 'asistan' ? '' : route.page;
   const wide = matchMedia('(min-width: 900px)').matches;
   const tabs = TABS.filter(t => ((t.id !== 'odalar' && t.id !== 'dershane') || Cloud.enabled) && (!t.admin || Cloud.isAdmin));
-  nav.innerHTML = `<a class="rail-brand" href="#/bugun" aria-label="Ders Özetim">${mascotSVG('ok', 34)}<span>Ders Özetim</span></a>` + tabs.map(t => `<a class="tab${t.rail ? ' rail-only' : ''}${active === t.id || (!wide && t.id === 'defter' && active === 'kitaplik') ? ' on' : ''}" href="#/${t.id}"${active === t.id ? ' aria-current="page"' : ''}>${t.icon}<span>${t.label}</span>${t.id === 'odak' ? '<span class="tab-b" id="tab-odak-b" hidden></span>' : ''}</a>`).join('');
+  nav.innerHTML = `<a class="rail-brand" href="#/bugun" aria-label="Ders Özetim">${mascotSVG('ok', 34)}<span>Ders Özetim</span></a>` + tabs.map(t => `<a class="tab${t.rail ? ' rail-only' : ''}${active === t.id || (!wide && t.id === 'defter' && (active === 'kitaplik' || active === 'lab')) ? ' on' : ''}" href="#/${t.id}"${active === t.id ? ' aria-current="page"' : ''}>${t.icon}<span>${t.label}</span>${t.id === 'odak' ? '<span class="tab-b" id="tab-odak-b" hidden></span>' : ''}</a>`).join('');
 }
 const VIEWS = {};
 function render(){

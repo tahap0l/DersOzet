@@ -79,6 +79,8 @@ function mascotCard(){
   const lines = mascotLines();
   const wd = typeof NT !== 'undefined' ? NT.due().length : 0;
   if (wd) lines.push(`Yanlış defterinde bugün ${wd} soru seni bekliyor.`);
+  const sim = typeof simsFor === 'function' ? todayTopics().map(t => [t, simsFor(t.slug)[0]]).find(x => x[1]) : null;
+  if (sim) lines.push(`${sim[0].name} için laboratuvarda bir deney var: ${sim[1].title}. Kurcalayınca daha iyi oturur.`);
   return `<section class="mascot-card" aria-label="${MASCOT.name}">
     <div class="mc-face">${mascotSVG(mascotMood(), 76)}</div>
     <div class="mc-b">
@@ -88,6 +90,7 @@ function mascotCard(){
         ${tops.length ? `<button class="mc-btn" data-act="m-topics">Konuları hatırlat</button>` : ''}
         ${qs ? `<button class="mc-btn" data-act="m-quiz">Beni sına</button>` : ''}
         ${wd ? `<button class="mc-btn" data-act="m-wrongs">Yanlışları tekrar et</button>` : ''}
+        ${sim ? `<a class="mc-btn" href="#/lab/${sim[1].id}">Deneyi aç</a>` : ''}
         <button class="mc-btn" data-act="m-chat">Sor</button>
       </div>
     </div>
@@ -103,7 +106,7 @@ function mTopicsSheet(){
         <p class="m-t">${chip(t.subject)}<strong>${esc(t.name)}</strong></p>
         ${s.oneLiner ? `<p>${esc(s.oneLiner)}</p>` : ''}
         ${pts.length ? `<ul>${pts.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-        <a class="tlink" href="#/konu/${encodeURIComponent(t.slug)}">Özeti aç</a>
+        <a class="tlink" href="#/konu/${encodeURIComponent(t.slug)}">Özeti aç</a>${typeof simsFor === 'function' ? simsFor(t.slug).map(x => ` <a class="tlink" href="#/lab/${x.id}">Deney: ${esc(x.title)}</a>`).join('') : ''}
       </article>`; }).join('')}`);
 }
 

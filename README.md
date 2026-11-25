@@ -16,6 +16,7 @@ Geliştiren: **Esat Taha Polat** ([@tahap0l](https://github.com/tahap0l))
 - **Plan oluştur:** Derslerini, zorlandığın dersleri, günlük saatini ve günlerini seç; sana göre haftalık plan hazırlansın. Yapay zekâ gerekmez.
 - **Kitaplık:** Hazır YKS konu özetleri (konu anlatımı, formüller, kavramlar, sık yapılan hatalar, çözümlü sorular). Türkçe karakter yazmadan arayabilirsin.
 - **Odak:** Odak ve mola sayacı (25/5 ya da kendi sürelerin), kronometre, son 7 günün odak grafiği. Sayaç ve kronometre hesapta durur; telefonda ve bilgisayarda aynı anda akar.
+- **Laboratuvar:** Konulara bağlı 20 dokunmatik deney ve animasyon. Fizik (kaldırma kuvveti, sıvı, katı ve gaz basıncı, enerjinin korunumu, ısı alışverişi, yoğunluk), kimya (maddenin halleri, iyonik ve kovalent bağ, molekül şekilleri, periyodik sistem, zayıf etkileşimler), biyoloji (enzimler), matematik (mutlak değer, EBOB-EKOK, denklem terazisi, kesirler, asal sayı kalburu) ve geometri (Pisagor ve Öklid, üçgende açılar ve açıortay). Konu özetinin başında ve Mürek'in günlük mesajında o konunun deneyi çıkar.
 - **Defter:** Not defteri (yazı ve kalemle çizim; çizgili, kareli, noktalı kâğıt; kalem basıncı, fosforlu kalem, silgi, geri al) ve yanlış defteri (sorunun fotoğrafı, ders/konu, yanlış nedeni, üstüne çözüm, 1-3-7-14-30 gün aralıklı tekrar). Hepsi hesapta; internet yokken yazılanlar bağlanınca gönderilir.
 - **Ana ekrana ekle:** iPhone, iPad, Android ve bilgisayar için cihazı tanıyan adım adım rehber; destekleyen tarayıcıda tek dokunuşla yükleme.
 - **Müzik ve video:** YouTube'daki ders videosunu ya da Spotify listesini uygulamanın içinde aç; oynatıcı sayfa değişince de çalmaya devam eder. Spotify hesabını bağlayınca listelerin, arama, çalan şarkı, başlat/durdur/sonraki, ses ve cihaz seçimi uygulamadan yönetilir; bilgisayarda müzik doğrudan uygulamanın içinde çalabilir (Spotify Premium gerekir; geliştirme modunda en fazla 5 hesap). Kendi kopyanda `app/js/config.js` içindeki `spotifyClientId`'yi kendi Spotify uygulamanla değiştir.
@@ -83,6 +84,8 @@ app/js/media.js            YouTube ve Spotify oynatıcı
 app/js/spotify.js          Spotify hesabı bağlama ve çalma kumandası
 app/js/notes.js            not defteri, yanlış defteri, kalemle çizim, aralıklı tekrar
 app/js/install.js          ana ekrana ekleme rehberi
+app/js/lab.js              laboratuvar: deney çerçevesi (tuval, kaydırıcılar, dokunma)
+app/js/sims-*.js           fizik, kimya-biyoloji, matematik-geometri deneyleri
 app/js/admin.js            yönetici paneli
 app/js/motivation.js       renk temaları, rozetler, günün sözü, hedefler
 app/js/app.js              arayüz ve sayfalar

@@ -105,7 +105,7 @@ function newNote(kind, extra){
 
 /* ---------- liste sayfaları ---------- */
 function defterSeg(on){
-  return `<div class="seg" role="tablist" aria-label="Defter"><a class="seg-b${on === 'defter' ? ' on' : ''}" href="#/defter" role="tab" aria-selected="${on === 'defter'}">Notlar</a><a class="seg-b${on === 'yanlis' ? ' on' : ''}" href="#/yanlis" role="tab" aria-selected="${on === 'yanlis'}">Yanlışlar${NT.due().length ? ` <b class="seg-n">${NT.due().length}</b>` : ''}</a><a class="seg-b${on === 'kitaplik' ? ' on' : ''}" href="#/kitaplik" role="tab" aria-selected="${on === 'kitaplik'}">Özetler</a></div>`;
+  return `<div class="seg" role="tablist" aria-label="Defter"><a class="seg-b${on === 'defter' ? ' on' : ''}" href="#/defter" role="tab" aria-selected="${on === 'defter'}">Notlar</a><a class="seg-b${on === 'yanlis' ? ' on' : ''}" href="#/yanlis" role="tab" aria-selected="${on === 'yanlis'}">Yanlışlar${NT.due().length ? ` <b class="seg-n">${NT.due().length}</b>` : ''}</a><a class="seg-b${on === 'kitaplik' ? ' on' : ''}" href="#/kitaplik" role="tab" aria-selected="${on === 'kitaplik'}">Özetler</a><a class="seg-b${on === 'lab' ? ' on' : ''}" href="#/lab" role="tab" aria-selected="${on === 'lab'}">Deneyler</a></div>`;
 }
 function ntWhen(s){ const d = new Date(s), t = new Date(); const days = Math.round((new Date(t.toDateString()) - new Date(d.toDateString())) / 864e5); return days === 0 ? 'bugün ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) : days === 1 ? 'dün' : d.getDate() + ' ' + MONTHS[d.getMonth()]; }
 

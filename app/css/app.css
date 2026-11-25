@@ -776,3 +776,45 @@ a.seg-b{text-decoration:none;color:inherit;display:flex;align-items:center;justi
 .ti.music.sp svg{color:#1DB954}
 .ti.music.yt svg{color:#FF5A5F}
 .code-chip.doing{letter-spacing:0;font-weight:700;max-width:52vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+
+/* ---------- Laboratuvar ---------- */
+.lab-grid{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.lab-card{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:16px;background:var(--surface-2);color:var(--ink);text-decoration:none;min-height:100%;border:1.5px solid transparent}
+.lab-card:hover{border-color:var(--c,var(--brand))}
+.lab-card:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.lc-ic{flex:none;width:44px;height:44px;border-radius:14px;background:var(--c,var(--brand-soft));color:var(--chip-ink);display:grid;place-items:center}
+.lc-ic svg{width:24px;height:24px}
+.lc-b{min-width:0}
+.lc-b strong{display:block;font-size:16px;margin-bottom:2px}
+.lc-b span{display:block;font-size:14px;color:var(--ink-2);line-height:1.4}
+.sim-page{max-width:980px;margin:0 auto}
+.sim-chip{margin:0 0 6px}
+.sim-stage{position:relative;border-radius:var(--r-card);overflow:hidden;background:var(--surface);box-shadow:var(--shadow);margin:14px 0 12px}
+.sim-stage canvas{display:block;width:100%;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+.sim-stage canvas.draggable{cursor:grab;touch-action:none}
+.sim-stage canvas.draggable:active{cursor:grabbing}
+.sim-read .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:0 0 12px}
+.sim-read .kv > div{background:var(--surface);border-radius:14px;padding:10px 12px;box-shadow:var(--shadow);min-width:0}
+.sim-read .kv > div.hl{background:var(--brand);color:var(--brand-ink)}
+.sim-read .kv > div.hl dt{color:inherit;opacity:.85}
+.sim-read dt{font-size:12px;font-weight:800;color:var(--ink-2);margin:0 0 2px}
+.sim-read dd{margin:0;font-weight:800;font-size:15px;overflow-wrap:anywhere}
+.ok-t{color:var(--ok)}
+.no-t{color:var(--danger)}
+.sim-ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 18px;background:var(--surface);border-radius:var(--r-card);padding:16px 18px;box-shadow:var(--shadow);margin-bottom:16px}
+.sim-ctl:empty{display:none}
+.sim-ctl .sl,.sim-ctl .sc{display:block;min-width:0}
+.sim-ctl .sl-h{display:flex;justify-content:space-between;gap:10px;font-weight:800;font-size:14px;color:var(--ink-2);margin-bottom:6px}
+.sim-ctl .sl-h b{color:var(--ink);font-variant-numeric:tabular-nums}
+.sim-ctl input[type=range]{width:100%;height:32px;accent-color:var(--brand);margin:0}
+.sim-ctl .chips{display:flex;flex-wrap:wrap;gap:6px}
+.sim-ctl .chips .fchip{min-height:36px;padding:4px 12px}
+.sim-ctl .st{display:flex;gap:10px;align-items:center;font-weight:700;min-height:40px;cursor:pointer}
+.sim-ctl .st input{width:22px;height:22px;accent-color:var(--brand)}
+.sim-ctl .sb-row{grid-column:1/-1;margin-top:2px}
+.sim-try ol{margin:6px 0 0;padding-left:22px;line-height:1.6}
+.sim-try li + li{margin-top:4px}
+.sim-links{display:grid;gap:10px;margin:0 0 14px}
+.sim-links .focus-cta{background:var(--c,var(--brand-soft));color:var(--chip-ink)}
+.sim-links .fc-ic{background:rgba(255,255,255,.45)}
+@media (min-width:900px){ .sim-page .sim-ctl{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))} }
