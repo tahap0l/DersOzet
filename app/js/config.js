@@ -12,5 +12,7 @@ window.DO_CONFIG = {
   iceServers: [
     { urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }
   ],
-  maxVideoPeers: 8
+  maxVideoPeers: 8,
+  // Supabase'de Google sağlayıcısı açılınca true yap.
+  googleLogin: false
 };

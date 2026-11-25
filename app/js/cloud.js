@@ -91,7 +91,7 @@ const Cloud = {
     if (error) throw error;
   },
   async signOut(){
-    await this.flushPush();
+    clearTimeout(this.pushT); await this.push();
     try { await this.sb.auth.signOut(); } catch(e){}
     this.user = null; this.school = []; this.profile = null; this.isAdmin = false;
     if (this.stateCh){ try { this.sb.removeChannel(this.stateCh); } catch(e){} this.stateCh = null; }

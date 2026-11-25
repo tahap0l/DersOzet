@@ -555,9 +555,9 @@ function loginView(){
         <button class="btn primary lg" type="submit"${L.busy ? ' disabled' : ''}>${L.busy ? 'Bekle…' : up ? 'Hesap aç' : 'Giriş yap'}</button>
         ${up ? '' : '<button class="link" type="button" data-act="l-forgot">Şifremi unuttum</button>'}
       </form>
-      <p class="or"><span>ya da</span></p>
+      ${(window.DO_CONFIG || {}).googleLogin ? `<p class="or"><span>ya da</span></p>
       <button class="btn lg google" data-act="l-google"${L.busy ? ' disabled' : ''}><svg viewBox="0 0 24 24" aria-hidden="true" style="stroke:none"><path fill="#4285F4" d="M22.5 12.2c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8Z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.2-2.7l-3.5-2.7c-1 .7-2.2 1.1-3.7 1.1-2.9 0-5.3-1.9-6.2-4.5H2.2v2.8A11 11 0 0 0 12 23Z"/><path fill="#FBBC05" d="M5.8 14.2a6.6 6.6 0 0 1 0-4.3V7.1H2.2a11 11 0 0 0 0 9.9l3.6-2.8Z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3 .6 4.2 1.6l3.1-3.1A11 11 0 0 0 2.2 7.1l3.6 2.8C6.7 7.3 9.1 5.4 12 5.4Z"/></svg>Google ile devam et</button>
-      <p class="hint">Google ile girdiysen Profil sayfasından bir şifre belirle; diğer cihazlarda e-posta ve şifrenle girebilirsin.</p>
+      <p class="hint">Google ile girdiysen Profil sayfasından bir şifre belirle; diğer cihazlarda e-posta ve şifrenle girebilirsin.</p>` : '<p class="hint">Hesabın yoksa yukarıdan <strong>Hesap aç</strong>\'ı seç: e-posta ve şifre yeterli.</p>'}
     </div>
     <p class="w-credit">Esat Taha Polat tarafından geliştirildi. Açık kaynak, ücretsiz, reklamsız.</p>
   </main>`;
@@ -1152,7 +1152,15 @@ async function boot(){
   }
   pmLoop(); swLoop();
   if (ENV === 'web' && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !/[?&]nosw/.test(location.search)){
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    // Yeni sürüm yüklenince sayfayı bir kez yenile ki herkes hep son sürümü kullansın.
+    const hadSW = !!navigator.serviceWorker.controller; let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadSW || reloaded || Room.id) return; reloaded = true;
+      Promise.resolve(Cloud.uid ? Cloud.flushPush() : null).finally(() => location.reload());
+    });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => {
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) r.update().catch(() => {}); });
+    }).catch(() => {});
   }
   if (ENV === 'artifact' && window.claude && typeof window.claude.use === 'function'){
     window.claude.use('sample').then(x => { CAP.sample = x; if (x && DB.d.ai.engine === 'off' && !DB.d.ai.chosen){ DB.d.ai.engine = 'claude'; } if (route.page === 'asistan' || route.page === 'profil') render(); });
