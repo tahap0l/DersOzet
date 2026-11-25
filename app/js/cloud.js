@@ -176,6 +176,7 @@ const Cloud = {
         this.applyRemote(data.data); changed = true;
       }
       if (await this.pullPrograms()) changed = true;
+      if (!this.isAdmin){ try { if (await this.rpc('is_app_admin')){ this.isAdmin = true; changed = true; } } catch(e){} }
       return changed;
     } catch(e){ return false; }
   },

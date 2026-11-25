@@ -375,6 +375,7 @@ function profileView(){
   const yd = fromKey(yksDate());
   return `
   <header class="prof"><div class="avatar lg">${esc((p.name || '?').charAt(0).toLocaleUpperCase('tr'))}</div><div><h1>${esc(p.name || 'Adını ekle')}</h1><p class="sub">${g.dept ? esc((g.school ? g.school + ', ' : '') + g.dept) + ' hedefliyor' : esc(TRACKS[p.track] ? TRACKS[p.track].name : '') + ' öğrencisi'}</p></div></header>
+  ${Cloud.isAdmin ? `<a class="focus-cta admin-cta" href="#/admin"><span class="fc-ic">${I.shield}</span><span><strong>Yönetici paneli</strong><span>Kullanıcılar, dershaneler, odalar ve şikâyetler. Sadece sen görürsün.</span></span><span class="fc-go">${I.next}</span></a>` : ''}
   ${Cloud.uid ? `<h2 class="menu-h">Hesabın</h2>
   <ul class="menu">
     <li><div class="mi"><span>E-posta</span><span class="mv">${esc(Cloud.user.email || '')}</span></div></li>
@@ -392,7 +393,6 @@ function profileView(){
     <li><button data-act="p-sound"><span>Sayaç sesi</span><span class="mv">${p.sound === false ? 'Kapalı' : 'Açık'}</span></button></li>
     <li><a href="#/asistan/ayar"><span>Yapay zekâ</span><span class="mv">${esc(AI.label())}</span></a></li>
     <li><a href="#/medya"><span>Müzik ve video</span><span class="mv">YouTube, Spotify</span></a></li>
-    ${Cloud.isAdmin ? '<li><a href="#/admin"><span>Yönetici paneli</span><span class="mv">Sadece sen görürsün</span></a></li>' : ''}
   </ul>
   ${Cloud.uid ? `<h2 class="menu-h">Dershane</h2>
   <ul class="menu">
