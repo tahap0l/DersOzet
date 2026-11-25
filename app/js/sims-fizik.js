@@ -329,7 +329,7 @@ defSim({
         shown = lerp(shown, mass, 1 - Math.pow(0.02, dt));
         // terazi
         const s = 40 + 4.5 * Math.cbrt(V) * 8, bx = 250, by = 460;
-        g.fillStyle = c.bg2; S.rr(bx - 170, by, 340, 60, 14); g.fill(); g.fillStyle = c.ink; S.rr(bx - 120, by + 70, 240, 70, 12); g.fill();
+        g.fillStyle = c.bg2; S.rr(bx - 170, by, 340, 60, 14); g.fill(); g.fillStyle = '#1A1530'; S.rr(bx - 120, by + 70, 240, 70, 12); g.fill();
         S.text(nf(shown, 1) + ' g', bx, by + 118, { size: 40, color: '#7CFFB2', align: 'center', weight: 900 });
         g.fillStyle = M[3]; S.rr(bx - s / 2, by - s, s, s, 10); g.fill();
         S.text(M[1], bx, by - s - 18, { size: 28, align: 'center', weight: 800 });
