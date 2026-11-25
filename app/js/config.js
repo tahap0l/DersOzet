@@ -14,5 +14,7 @@ window.DO_CONFIG = {
   ],
   maxVideoPeers: 8,
   // Supabase'de Google sağlayıcısı açılınca true yap.
-  googleLogin: false
+  googleLogin: false,
+  // Spotify geliştirici panelindeki uygulamanın Client ID'si (gizli değildir). Boş bırakırsan Spotify bağlantısı görünmez.
+  spotifyClientId: '23f34cc2a19c4e0bb43c1a580462db92'
 };

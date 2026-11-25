@@ -367,6 +367,7 @@ function focusView(){
     <div class="ring-c"><p class="pm-time" id="pm-time" role="timer" aria-live="off">${pmFmt(pmLeft())}</p><p class="pm-mode">${MODE_NAME[t.mode]}, ${modeMins(t.mode)} dk</p></div>
   </div>
   <div class="pm-ctl"><button class="btn primary lg" data-act="pm-go" id="pm-go">Başlat</button><button class="btn lg" data-act="pm-reset">Sıfırla</button></div>`}
+  ${typeof SP !== 'undefined' && SP.on ? `<section class="block sp-card mini"><div class="sp-head">${SP_ICON}<div><h2>Spotify</h2></div><a class="link sm" href="#/medya">Listeler</a></div><div id="sp-mini">${spNowHTML(true)}</div></section>` : ''}
   <a class="focus-cta" href="#/medya"><span class="fc-ic">${I.music}</span><span><strong>${Player.cur ? 'Çalıyor: ' + esc(Player.cur.title || '') : 'Müzik ve video'}</strong><span>YouTube'da ders videosu, Spotify'da çalışma listesi.</span></span><span class="fc-go">${I.next}</span></a>
   ${Cloud.enabled ? `<a class="focus-cta" href="#/odalar"><span class="fc-ic">${I.rooms}</span><span><strong>Arkadaşlarınla çalış</strong><span>Ortak sayaçlı bir odaya gir; kamera isteğe bağlı.</span></span><span class="fc-go">${I.next}</span></a>` : ''}
   <p class="hint center">Bugün ${t.rounds} odak turu, ${(DB.d.stats.days[dayKey()] || {}).focus || 0}/${DB.d.profile.dailyFocus || 120} dakika. En az 10 dakikalık odak günlük serine sayılır.</p>
@@ -1154,6 +1155,7 @@ async function boot(){
   }
   LIB = window.DO_LIBRARY;
   DB.load();
+  if (typeof SP !== 'undefined') await SP.handleRedirect();
   applyTheme();
   parseRoute();
   if (T().running && T().endAt <= Date.now()) pmTick();
@@ -1164,6 +1166,7 @@ async function boot(){
     parseRoute(); applyTheme(); render();
   }
   pmLoop(); swLoop();
+  if (typeof SP !== 'undefined' && SP.on){ SP.refresh(); SP.sdk(); SP.startPoll(); }
   if (ENV === 'web' && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !/[?&]nosw/.test(location.search)){
     // Yeni sürüm yüklenince sayfayı bir kez yenile ki herkes hep son sürümü kullansın.
     const hadSW = !!navigator.serviceWorker.controller; let reloaded = false;

@@ -66,6 +66,7 @@ function mediaView(){
       ${saved ? `<button class="icon-btn ghost sm" data-act="mp-del" data-i="${i}" aria-label="Listeden çıkar">${I.close}</button>` : `<button class="link sm" data-act="mp-save" data-u="${esc(x.url)}" data-t="${esc(x.title || '')}">Kaydet</button>`}</li>`; };
   return `<header class="page-head"><h1>Müzik ve video</h1></header>
     <p class="sub">YouTube'daki ders videosunu ya da Spotify listeni burada aç. Sayfa değiştirsen de, odaya girsen de altta çalmaya devam eder.</p>
+    ${typeof spSection === 'function' ? spSection() : ''}
     <form class="m-form" id="mp-f"><input id="mp-u" class="input" inputmode="url" placeholder="YouTube ya da Spotify bağlantısını yapıştır" autocomplete="off"><button class="btn primary">Aç</button></form>
     <p class="err" id="mp-e" role="alert"></p>
     <section class="block"><h2 class="f-h">Ders videosu bul</h2>
@@ -101,4 +102,5 @@ document.addEventListener('paste', e => {
   if (route.page !== 'medya' || (e.target && e.target.id !== 'mp-u')) return;
   setTimeout(() => { const v = $('#mp-u') && $('#mp-u').value; if (v && parseMedia(v)) mediaOpen(v, '', true); }, 0);
 });
+mediaView.after = () => { if (typeof SP !== 'undefined' && SP.on){ SP.refresh(); SP.sdk(); } };
 VIEWS.medya = mediaView;

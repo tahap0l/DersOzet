@@ -18,7 +18,7 @@ Geliştiren: **Esat Taha Polat** ([@tahap0l](https://github.com/tahap0l))
 - **Odak:** Odak ve mola sayacı (25/5 ya da kendi sürelerin), kronometre, son 7 günün odak grafiği. Sayaç ve kronometre hesapta durur; telefonda ve bilgisayarda aynı anda akar.
 - **Defter:** Not defteri (yazı ve kalemle çizim; çizgili, kareli, noktalı kâğıt; kalem basıncı, fosforlu kalem, silgi, geri al) ve yanlış defteri (sorunun fotoğrafı, ders/konu, yanlış nedeni, üstüne çözüm, 1-3-7-14-30 gün aralıklı tekrar). Hepsi hesapta; internet yokken yazılanlar bağlanınca gönderilir.
 - **Ana ekrana ekle:** iPhone, iPad, Android ve bilgisayar için cihazı tanıyan adım adım rehber; destekleyen tarayıcıda tek dokunuşla yükleme.
-- **Müzik ve video:** YouTube'daki ders videosunu ya da Spotify listesini uygulamanın içinde aç; oynatıcı sayfa değişince de çalmaya devam eder.
+- **Müzik ve video:** YouTube'daki ders videosunu ya da Spotify listesini uygulamanın içinde aç; oynatıcı sayfa değişince de çalmaya devam eder. Spotify hesabını bağlayınca listelerin, arama, çalan şarkı, başlat/durdur/sonraki, ses ve cihaz seçimi uygulamadan yönetilir; bilgisayarda müzik doğrudan uygulamanın içinde çalabilir (Spotify Premium gerekir; geliştirme modunda en fazla 5 hesap). Kendi kopyanda `app/js/config.js` içindeki `spotifyClientId`'yi kendi Spotify uygulamanla değiştir.
 - **Yönetici paneli:** Kullanıcılar, dershaneler, odalar ve şikâyetler; mesaj silme, oda kapatma, kullanıcı engelleme. Yalnızca `app_admins` tablosundaki hesaplar açabilir.
 - **PDF:** Tek konuyu ya da haftanın programını konu özetleriyle birlikte A4 PDF olarak indir.
 - **Profil:** Ad, alan, hedef, sınav tarihi, şehir, renk teması, dershane üyelikleri, hesabı silme.
@@ -80,6 +80,7 @@ app/js/school.js           dershane paneli
 app/js/rooms.js            ders odaları: ortak sayaç, sohbet, ses ve görüntü
 app/js/mascot.js           maskot Mürek
 app/js/media.js            YouTube ve Spotify oynatıcı
+app/js/spotify.js          Spotify hesabı bağlama ve çalma kumandası
 app/js/notes.js            not defteri, yanlış defteri, kalemle çizim, aralıklı tekrar
 app/js/install.js          ana ekrana ekleme rehberi
 app/js/admin.js            yönetici paneli
