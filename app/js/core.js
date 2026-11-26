@@ -7,7 +7,7 @@
  */
 'use strict';
 
-const APP = { name: 'Ders Özetim', author: 'Esat Taha Polat', repo: 'https://github.com/tahap0l/DersOzet', version: '3.9.1' };
+const APP = { name: 'Ders Özetim', author: 'Esat Taha Polat', repo: 'https://github.com/tahap0l/DersOzet', version: '3.10.0' };
 const ENV = window.DO_ENV || 'web'; // 'web': Cloudflare / GitHub sürümü, 'artifact': claude.ai yapıtı
 const CAP = { sample: null, downloads: null };
 
@@ -272,6 +272,10 @@ const GRADES = [['9', '9. sınıf'], ['10', '10. sınıf'], ['11', '11. sınıf'
 const gradeName = g => { const x = GRADES.find(r => r[0] === String(g || '')); return x ? x[1] : ''; };
 const firstName = n => String(n || '').trim().split(/\s+/)[0] || '';
 /* ad ve soyad en az iki kelime mi */
+/* hoca mı öğrenci mi: hocaya sınıf ve alan sorulmaz; adının yanında branşı ya da "Hoca" yazar */
+const BRANCHES = ['Matematik', 'Geometri', 'Fizik', 'Kimya', 'Biyoloji', 'Türkçe', 'Edebiyat', 'Tarih', 'Coğrafya', 'Felsefe', 'Din Kültürü', 'İngilizce', 'Rehberlik'];
+const isTeacher = p => (p || DB.d.profile).kind === 'teacher';
+const whoTag = p => !p ? '' : p.kind === 'teacher' ? (p.branch ? p.branch + ' hocası' : 'Hoca') : gradeName(p.grade);
 const fullNameOk = n => String(n || '').trim().split(/\s+/).filter(w => w.length >= 2).length >= 2;
 
 const DB = {
@@ -280,7 +284,7 @@ const DB = {
   blank(){
     return {
       v: 4,
-      profile: { name: '', track: 'SAY', yks: '', city: null, theme: 'auto', sound: true, palette: 'lavanta', goal: { school: '', dept: '' }, why: '', dailyFocus: 120 },
+      profile: { name: '', kind: '', branch: '', track: 'SAY', yks: '', city: null, theme: 'auto', sound: true, palette: 'lavanta', goal: { school: '', dept: '' }, why: '', dailyFocus: 120 },
       weeks: {}, stats: { days: {}, badges: {}, full: {}, plans: 0, imports: 0 },
       focus: { focus: 25, brk: 5, long: 15 },
       timer: { mode: 'focus', left: 25 * 60, endAt: 0, running: false, rounds: 0, roundsDay: '' },

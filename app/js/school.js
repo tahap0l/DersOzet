@@ -16,7 +16,7 @@ async function scLoad(inst, force){
   try {
     const [cls, mem, codes, progs] = await Promise.all([
       sb.from('classes').select('id, name, created_at').eq('institution_id', inst).order('name'),
-      sb.from('memberships').select('user_id, role, class_id, joined_at, p:profiles(name, goal, track, grade)').eq('institution_id', inst).order('joined_at'),
+      sb.from('memberships').select('user_id, role, class_id, joined_at, p:profiles(name, goal, track, grade, kind, branch)').eq('institution_id', inst).order('joined_at'),
       staff ? sb.from('invite_codes').select('code, class_id, role').eq('institution_id', inst) : Promise.resolve({ data: [] }),
       staff ? sb.from('programs').select('id, class_id, student_id, week_start, title, tasks, created_at').eq('institution_id', inst).order('week_start', { ascending: false }).limit(80) : Promise.resolve({ data: [] })
     ]);
@@ -29,7 +29,7 @@ async function scLoad(inst, force){
     SC.data[inst] = { classes: cls.data, members: mem.data, codes: codes.data, programs: progs.data, progress, at: Date.now() };
   } catch(e){ SC.err[inst] = 'Bilgiler alınamadı. İnternet bağlantını kontrol et.'; }
   SC.busy[inst] = false;
-  if (route.page === 'dershane') render();
+  if ((route.page === 'dershane' || route.page === 'bugun') && !sheetEl) render();
 }
 
 const codeBox = (code, label, renew) => `<div class="codebox"><div><p class="cb-l">${esc(label)}</p><p class="cb-c">${esc(code)}</p></div>
@@ -85,7 +85,7 @@ function instView(m, D){
   </section>
   <section class="block">
     <h2 class="f-h">Hocalar</h2>
-    <ul class="people">${teachers.map(x => `<li>${avatarFor(x.p && x.p.name)}<span><strong>${esc(x.p ? x.p.name : '')}</strong><span class="hint">${ROLE_NAME[x.role]}</span></span></li>`).join('')}</ul>
+    <ul class="people">${teachers.map(x => `<li>${avatarFor(x.p && x.p.name)}<span><strong>${esc(x.p ? x.p.name : '')}</strong><span class="hint">${ROLE_NAME[x.role]}${x.p && x.p.branch ? ' · ' + esc(x.p.branch) : ''}</span></span></li>`).join('')}</ul>
   </section>
   <div class="row"><button class="link danger" data-act="sc-leave" data-i="${inst}">${m.role === 'owner' ? 'Dershaneyi sil' : 'Dershaneden ayrıl'}</button></div>`;
 }
@@ -112,7 +112,7 @@ function classView(m, D, cid){
   <section class="block">
     <div class="block-head"><h2>Öğrenciler</h2><span class="hint">Bu hafta</span></div>
     ${students.length ? `<ul class="people">${students.map(s => { const x = stat(s.user_id); const pct = x.t ? Math.round(x.d / x.t * 100) : 0;
-      return `<li>${avatarFor(s.p && s.p.name)}<span class="pp-b"><strong>${esc(s.p ? s.p.name : '')}</strong><span class="hint">${esc([s.p && gradeName(s.p.grade), s.p && s.p.goal].filter(Boolean).join(' · '))}</span>
+      return `<li>${avatarFor(s.p && s.p.name)}<span class="pp-b"><strong>${esc(s.p ? s.p.name : '')}</strong><span class="hint">${esc([s.p && whoTag(s.p), s.p && s.p.goal].filter(Boolean).join(' · '))}</span>
         ${x.t ? `<span class="minibar" aria-label="${x.d}/${x.t} görev"><span style="width:${pct}%"></span></span><span class="hint">${x.d}/${x.t} görev</span>` : '<span class="hint">Bu hafta programı yok</span>'}</span>
         <button class="icon-btn ghost" data-act="sc-stu" data-u="${s.user_id}" aria-label="Öğrenci seçenekleri">${I.dots}</button></li>`; }).join('')}</ul>`
       : `<p class="hint">Henüz öğrenci yok. Sınıf kodunu paylaş.</p>`}
@@ -125,6 +125,57 @@ function classView(m, D, cid){
         <button class="link danger sm" data-act="sc-prog-del" data-p="${p.id}">Sil</button></li>`; }).join('')}</ul>` : '<p class="hint">Henüz program gönderilmedi.</p>'}
   </section>
   <div class="row"><button class="link danger" data-act="sc-class-del" data-c="${cid}">Sınıfı sil</button></div>`;
+}
+
+/* ---------- hocanın Bugün sayfası ---------- */
+function classWeek(D, cid){
+  const students = D.members.filter(x => x.class_id === cid && x.role === 'student');
+  const wk = thisWeek(), ids = new Set(students.map(s => s.user_id));
+  const progs = D.programs.filter(p => (p.class_id === cid || (p.student_id && ids.has(p.student_id))) && wkKey(mondayOf(fromKey(p.week_start))) === wk);
+  let t = 0, d = 0;
+  students.forEach(s => progs.forEach(p => { if (p.class_id === cid || p.student_id === s.user_id){ t += (p.tasks || []).length; d += doneCount(p, s.user_id); } }));
+  return { n: students.length, progs: progs.length, pct: t ? Math.round(d / t * 100) : null };
+}
+function teacherToday(){
+  const p = DB.d.profile, h = new Date().getHours(), di = todayIdx();
+  const hi = h < 5 ? 'İyi geceler' : h < 12 ? 'Günaydın' : h < 18 ? 'İyi günler' : 'İyi akşamlar';
+  const staff = Cloud.school.filter(m => m.role !== 'student');
+  staff.forEach(m => { if (!SC.data[m.institution_id]) scLoad(m.institution_id); });
+  const instCard = m => {
+    const inst = m.institution_id, D = SC.data[inst];
+    if (!D) return `<section class="block t-inst"><div class="block-head"><h2>${esc(m.inst ? m.inst.name : 'Dershane')}</h2><span class="tag">${ROLE_NAME[m.role]}</span></div><div class="progress"><span class="spinner" aria-hidden="true"></span><span>Yükleniyor…</span></div></section>`;
+    SC.cur = D;
+    const stu = D.members.filter(x => x.role === 'student').length, tcode = D.codes.find(c => c.role === 'teacher');
+    return `<section class="block t-inst">
+      <div class="block-head"><h2>${esc(m.inst.name)}</h2><span class="tag">${ROLE_NAME[m.role]}</span></div>
+      <p class="hint">${D.classes.length} sınıf · ${stu} öğrenci · ${D.members.length - stu} hoca</p>
+      ${D.classes.length ? `<ul class="t-classes">${D.classes.map(c => { const x = classWeek(D, c.id);
+        return `<li><a href="#/dershane/${inst}/${c.id}"><span class="tc-n">${esc(c.name)}</span><span class="tc-s">${x.n} öğrenci${x.pct == null ? ' · bu hafta program yok' : ''}</span>
+          ${x.pct == null ? '' : `<span class="minibar" aria-label="Bu hafta %${x.pct} tamamlandı"><span style="width:${x.pct}%"></span></span><span class="tc-p">%${x.pct}</span>`}${I.next}</a></li>`; }).join('')}</ul>`
+        : `<p class="hint">Henüz sınıf yok. Dershaneyi açıp sınıf ekle; her sınıfın öğrencilere vereceğin bir kodu olur.</p>`}
+      <div class="row"><a class="btn sm primary" href="#/dershane/${inst}">Dershaneyi aç</a><button class="btn sm" data-act="room-new" data-inst="${inst}">Ders odası aç</button>${m.role === 'owner' && tcode ? `<button class="btn sm" data-act="sc-copy" data-code="${esc(tcode.code)}">Hoca kodu: ${esc(tcode.code)}</button>` : ''}</div>
+    </section>`;
+  };
+  const nSims = typeof LAB !== 'undefined' ? LAB.sims.length : 0;
+  return `
+  <header class="top"><p class="top-date">${DAYS[di]}, ${fmtDay(new Date())}</p><a class="avatar" href="#/profil" aria-label="Profil">${esc((p.name || '?').charAt(0).toLocaleUpperCase('tr'))}</a></header>
+  <section class="hero">
+    <h1 class="greet">${hi}${p.name ? ', ' + esc(firstName(p.name)) + ' Hoca' : ''}.</h1>
+    <p class="lede">${staff.length ? 'Sınıflarının bu haftaki durumu aşağıda. Program göndermek için sınıfa dokun.' : 'Dershaneni kur ya da kurucunun verdiği hoca koduyla katıl; sınıflarını ve öğrencilerini buradan takip edersin.'}</p>
+  </section>
+  ${staff.length ? staff.map(instCard).join('') : `<section class="block">${emptyBlock('Dershanen yok', 'Dershaneyi sen kuruyorsan oluştur. Başka bir hocanın dershanesine katılıyorsan ondan hoca kodunu iste.', '<button class="btn primary" data-act="sc-new">Dershane oluştur</button><button class="btn" data-act="sc-join">Hoca koduyla katıl</button>')}</section>`}
+  ${(() => { const wk = thisWeek(), w = DB.week(wk), ts = w ? w.tasks.filter(t => t.day === di) : [];
+    return ts.length ? `<section class="block"><div class="block-head"><h2>Kendi görevlerin</h2><a href="#/program">Tüm hafta</a></div><ul class="tasks">${ts.map(t => taskRow(wk, t)).join('')}</ul></section>` : ''; })()}
+  <section class="block">
+    <div class="block-head"><h2>Derste kullan</h2></div>
+    <ul class="t-tools">
+      <li><a href="#/lab"><span class="tt-ic">${I.flask}</span><span><strong>Laboratuvar</strong><span>${nSims} deney ve animasyon; tahtada göster</span></span></a></li>
+      <li><a href="#/kitaplik"><span class="tt-ic">${I.book}</span><span><strong>Konu özetleri</strong><span>${allTopics().length} konu, PDF olarak da iner</span></span></a></li>
+      <li><a href="#/asistan/sor"><span class="tt-ic">${I.spark}</span><span><strong>Yapay zekâya sor</strong><span>Soru çözümü, örnek soru, anlatım fikri</span></span></a></li>
+      <li><a href="#/odalar"><span class="tt-ic">${I.rooms}</span><span><strong>Ders odaları</strong><span>Sesli, görüntülü ya da yazışarak</span></span></a></li>
+    </ul>
+  </section>
+  ${Cloud.enabled ? installBanner() : ''}`;
 }
 
 function avatarFor(name){ return `<span class="avatar sm" aria-hidden="true">${esc(String(name || '?').charAt(0).toLocaleUpperCase('tr'))}</span>`; }

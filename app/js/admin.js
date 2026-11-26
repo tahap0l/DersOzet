@@ -32,9 +32,9 @@ function adminView(){
     </div><p class="hint">Son güncelleme: ${adDate(new Date().toISOString())}</p>`;
   else if (AD.tab === 'kullanici'){
     const q = AD.q.toLocaleLowerCase('tr');
-    const list = D.users.filter(u => !q || (u.email || '').toLowerCase().includes(q) || (u.name || '').toLocaleLowerCase('tr').includes(q) || gradeName(u.grade).toLocaleLowerCase('tr').includes(q));
+    const list = D.users.filter(u => !q || (u.email || '').toLowerCase().includes(q) || (u.name || '').toLocaleLowerCase('tr').includes(q) || whoTag(u).toLocaleLowerCase('tr').includes(q));
     body = `<input class="input" id="ad-q" placeholder="Ad, e-posta ya da sınıf ara" value="${esc(AD.q)}" autocomplete="off">
-      <ul class="people ad-list">${list.map(u => `<li>${avatarFor(u.name)}<span class="pp-b"><strong>${esc(u.name || '(adsız)')}${u.grade ? ` <span class="tag">${esc(gradeName(u.grade))}</span>` : ''}${u.banned ? ' <span class="tag-x">engelli</span>' : ''}</strong><span class="hint">${esc(u.email || '')}${u.track ? ' · ' + esc((TRACKS[String(u.track).toUpperCase()] || {}).name || u.track) : ''}</span>
+      <ul class="people ad-list">${list.map(u => `<li>${avatarFor(u.name)}<span class="pp-b"><strong>${esc(u.name || '(adsız)')}${whoTag(u) ? ` <span class="tag${u.kind === 'teacher' ? ' t' : ''}">${esc(whoTag(u))}</span>` : ''}${u.banned ? ' <span class="tag-x">engelli</span>' : ''}</strong><span class="hint">${esc(u.email || '')}${u.track && u.kind !== 'teacher' ? ' · ' + esc((TRACKS[String(u.track).toUpperCase()] || {}).name || u.track) : ''}</span>
         ${(u.school_names || []).length ? `<span class="hint">${esc(u.school_names.join(', '))}</span>` : ''}
         <span class="hint">Katıldı ${adDate(u.created_at)} · son giriş ${adDate(u.last)} · ${u.schools} dershane · ${esc((u.providers || []).join(', '))}</span></span>
         ${u.id === Cloud.uid ? '<span class="hint">sen</span>' : `<button class="btn sm${u.banned ? '' : ' danger'}" data-act="ad-do" data-a="${u.banned ? 'unban_user' : 'ban_user'}" data-id="${u.id}">${u.banned ? 'Engeli kaldır' : 'Engelle'}</button>`}</li>`).join('')}</ul>`;

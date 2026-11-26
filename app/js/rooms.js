@@ -125,7 +125,7 @@ const Room = {
     });
   },
 
-  me(){ const t = this.room && this.room.timer || {}; return { uid: Cloud.uid, name: DB.d.profile.name || 'Ben', grade: DB.d.profile.grade || '', mic: this.mic, cam: this.cam, st: t.running ? t.mode : 'idle', doing: roomDoing(), music: roomMusic(), at: Date.now() }; },
+  me(){ const t = this.room && this.room.timer || {}; return { uid: Cloud.uid, name: DB.d.profile.name || 'Ben', grade: DB.d.profile.grade || '', kind: DB.d.profile.kind || '', branch: DB.d.profile.branch || '', mic: this.mic, cam: this.cam, st: t.running ? t.mode : 'idle', doing: roomDoing(), music: roomMusic(), at: Date.now() }; },
   track(){ if (this.ch){ const m = this.me(); this.lastSig = JSON.stringify([m.doing, m.music, m.mic, m.cam, m.st]); this.ch.track(m).catch(() => {}); } },
   retrack(){ if (!this.ch) return; const m = this.me(); if (JSON.stringify([m.doing, m.music, m.mic, m.cam, m.st]) !== this.lastSig){ this.track(); this.paintTile(Cloud.uid); } },
 
@@ -322,7 +322,7 @@ const Room = {
     el.classList.toggle('self', self);
     el.classList.toggle('mirror', self && this.front);
     el.querySelector('.t-av').textContent = String(info.name || '?').charAt(0).toLocaleUpperCase('tr');
-    el.querySelector('.t-name').textContent = (info.name || '') + (gradeName(info.grade) ? ' · ' + gradeName(info.grade) : '') + (self ? ' (sen)' : '');
+    el.querySelector('.t-name').textContent = (info.name || '') + (whoTag(info) ? ' · ' + whoTag(info) : '') + (self ? ' (sen)' : '');
     const mu = info.music, dg = info.doing;
     el.querySelector('.t-info').innerHTML = (dg ? `<span class="ti doing">${I.book}<span>${esc(dg)}</span></span>` : '')
       + (mu && mu.t ? `<span class="ti music ${mu.k === 'yt' ? 'yt' : 'sp'}">${mu.k === 'yt' ? I.play : I.music}<span>${esc(mu.t)}</span></span>` : '');
@@ -499,7 +499,7 @@ Object.assign(ACT, {
   },
   'rm-who': el => {
     const u = el.dataset.u, p = Room.present[u] || {};
-    const box = openSheet(p.name || 'Kişi', `${gradeName(p.grade) ? `<p class="hint">${esc(gradeName(p.grade))}</p>` : ''}<ul class="menu">
+    const box = openSheet(p.name || 'Kişi', `${whoTag(p) ? `<p class="hint">${esc(whoTag(p))}</p>` : ''}<ul class="menu">
       <li><button data-k="mute"><span>${Room.muted.has(u) ? 'Sesini aç' : 'Sessize al'}</span><span class="mv">Sadece senin için</span></button></li>
       <li><button data-k="report"><span>Şikâyet et</span></button></li>
       ${Room.mod ? '<li><button data-k="kick" class="danger"><span>Odadan çıkar</span><span class="mv">Bir daha giremez</span></button></li>' : ''}</ul>`);

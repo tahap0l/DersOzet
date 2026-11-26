@@ -68,6 +68,13 @@ const TABS = [
   { id: 'admin', label: 'Yönetici', icon: I.shield, rail: true, admin: true },
   { id: 'profil', label: 'Profil', icon: I.user }
 ];
+/* hocanın menüsü: dershane ve sınıf işleri önde, kendi çalışma araçları yan menüde */
+const TEACHER_ORDER = ['bugun', 'dershane', 'odalar', 'lab', 'kitaplik', 'asistan', 'program', 'odak', 'defter', 'medya', 'admin', 'profil'];
+const TEACHER_BAR = ['bugun', 'dershane', 'odalar', 'lab', 'profil'];
+function tabsFor(){
+  if (!isTeacher()) return TABS;
+  return TEACHER_ORDER.map(id => TABS.find(t => t.id === id)).filter(Boolean).map(t => Object.assign({}, t, { rail: !TEACHER_BAR.includes(t.id) }, t.id === 'lab' ? { label: matchMedia('(min-width: 900px)').matches ? 'Laboratuvar' : 'Araçlar' } : {}));
+}
 
 /* ---------- durum ---------- */
 let route = { page: 'bugun', arg: '' };
@@ -149,6 +156,7 @@ function emptyBlock(title, text, actions){ return `<div class="empty"><h2>${titl
 
 /* ---------- Bugün ---------- */
 function todayView(){
+  if (isTeacher()) return teacherToday();
   const p = DB.d.profile, di = todayIdx(), wk = thisWeek(), w = DB.week(wk);
   const ts = w ? w.tasks.filter(t => t.day === di) : [];
   const done = ts.filter(t => t.done).length;
@@ -157,10 +165,11 @@ function todayView(){
   const hi = h < 5 ? 'İyi geceler' : h < 12 ? 'Günaydın' : h < 18 ? 'İyi günler' : 'İyi akşamlar';
   const left = daysLeft();
   const taskLine = ts.length ? (done === ts.length ? `Bugünkü ${ts.length} görevin hepsi bitti.` : `Bugün ${ts.length} görevin var${done ? ', ' + done + ' tanesi bitti' : ''}.`)
-    : (w && w.tasks.length ? 'Bugüne görev yazılmamış.' : 'Bu hafta için henüz programın yok.');
+    : (w && w.tasks.length ? 'Bugüne görev yazılmamış.' : '');
   const allDone = ts.length > 0 && done === ts.length;
+  const noProg = !(w && w.tasks.length), motto = mottoFor({ allDone, streak: st.cur, left });
+  const ins = Cloud.enabled ? installBanner() : '';
   const goalMin = p.dailyFocus || 120, wp = weekProgress(wk), g = p.goal || {};
-  const nb = Object.keys(DB.d.stats.badges || {}).length;
   return `
   <header class="top"><p class="top-date">${DAYS[di]}, ${fmtDay(new Date())}</p><a class="avatar" href="#/profil" aria-label="Profil">${esc((p.name || '?').charAt(0).toLocaleUpperCase('tr'))}</a></header>
   <section class="hero${allDone ? ' all-done' : ''}">
@@ -171,14 +180,13 @@ function todayView(){
       <span class="pill${st.today ? ' on' : ''}">${I.flame}<span><strong>${st.cur}</strong> günlük seri</span></span>
       <span class="pill${fm >= goalMin ? ' on' : ''}">${I.timer}<span><strong>${fm}</strong>/${goalMin} dk odak</span></span>
       ${wp ? `<a class="pill" href="#/program" data-act="to-overview">${I.cal}<span>Hafta <strong>%${wp.pct}</strong></span></a>` : ''}
-      <a class="pill soft" href="#/profil">${I.medal}<span><strong>${nb}</strong>/${BADGES.length} rozet</span></a>
     </div>
-    <p class="motto">${mottoFor({ allDone, streak: st.cur, left })}</p>
+    ${noProg ? '' : `<p class="motto">${motto}</p>`}
   </section>
-  ${mascotCard()}
-  ${Cloud.enabled ? installBanner() : ''}
+  ${mascotCard(noProg ? [Object.assign(document.createElement('textarea'), { innerHTML: motto }).value] : null)}
+  ${ins}
   ${p.why ? `<aside class="why"><p class="why-h">Neden çalışıyorum?</p><p class="why-t">${esc(p.why)}</p></aside>` : ''}
-  ${weatherNote()}
+  ${ins && !DB.d.profile.city ? '' : weatherNote()}
   <section class="block">
     <div class="block-head"><h2>Bugünkü görevler</h2>${ts.length ? '<a href="#/program">Tüm hafta</a>' : ''}</div>
     ${ts.length ? `<ul class="tasks">${ts.map(t => taskRow(wk, t)).join('')}</ul>`
@@ -274,7 +282,7 @@ function libraryView(){
   const all = allTopics();
   const subs = SUBJ_ORDER.filter(s => all.some(t => t.subject === s));
   return `
-  ${Cloud.uid && !matchMedia('(min-width: 900px)').matches ? '<header class="page-head"><h1>Defter</h1></header>' + defterSeg('kitaplik') + `<p class="sub">${all.length} konu özeti</p>` : `<header class="page-head"><h1>Kitaplık</h1><p class="sub">${all.length} konu özeti</p></header>`}
+  ${Cloud.uid && !matchMedia('(min-width: 900px)').matches ? defterHead() + defterSeg('kitaplik') + `<p class="sub">${all.length} konu özeti</p>` : `<header class="page-head"><h1>Kitaplık</h1><p class="sub">${all.length} konu özeti</p></header>`}
   ${ENV === 'artifact' ? '' : mySumsHTML()}
   <div class="search"><input id="lib-q" type="search" inputmode="search" placeholder="Konu ara: basınç, paragraf, hücre" value="${esc(ui.libQ)}" aria-label="Konu ara" autocomplete="off"></div>
   <div class="chips-row" role="group" aria-label="Ders filtresi">
@@ -398,23 +406,37 @@ function profileView(){
   const p = DB.d.profile, c = p.city;
   const theme = { auto: 'Sistemle aynı', light: 'Açık', dark: 'Koyu' }[p.theme || 'auto'];
   const g = p.goal || {}, got = DB.d.stats.badges || {};
-  const yd = fromKey(yksDate());
+  const yd = fromKey(yksDate()), teach = isTeacher();
+  const schoolMenu = Cloud.uid ? `<h2 class="menu-h">Dershane</h2>
+  <ul class="menu">
+    ${Cloud.school.map(m => `<li><a href="#/dershane/${m.institution_id}"><span>${esc(m.inst ? m.inst.name : 'Dershane')}</span><span class="mv">${ROLE_NAME[m.role]}${m.cls ? ', ' + esc(m.cls.name) : ''}</span></a></li>`).join('')}
+    <li><button data-act="sc-join"><span>Kodla dershaneye katıl</span></button></li>
+    ${teach || Cloud.anyStaff() ? `<li><a href="#/dershane"><span>Dershane paneli</span><span class="mv">Sınıflar ve programlar</span></a></li>` : ''}
+  </ul>` : '';
+  const nb = Object.keys(got).length;
   return `
-  <header class="prof"><div class="avatar lg">${esc((p.name || '?').charAt(0).toLocaleUpperCase('tr'))}</div><div><h1>${esc(p.name || 'Adını ekle')}</h1><p class="sub">${[gradeName(p.grade), TRACKS[p.track] ? TRACKS[p.track].name : ''].filter(Boolean).map(esc).join(' · ')}${g.dept ? '<br>' + esc((g.school ? g.school + ', ' : '') + g.dept) + ' hedefliyor' : ''}</p></div></header>
+  <header class="prof"><div class="avatar lg">${esc((p.name || '?').charAt(0).toLocaleUpperCase('tr'))}</div><div><h1>${esc(p.name || 'Adını ekle')}</h1><p class="sub">${teach ? [whoTag(p)].concat(Cloud.school.filter(m => m.role !== 'student').map(m => m.inst ? m.inst.name : '')).filter(Boolean).map(esc).join(' · ')
+    : [gradeName(p.grade), TRACKS[p.track] ? TRACKS[p.track].name : ''].filter(Boolean).map(esc).join(' · ') + (g.dept ? '<br>' + esc((g.school ? g.school + ', ' : '') + g.dept) + ' hedefliyor' : '')}</p></div></header>
   ${Cloud.isAdmin ? `<a class="focus-cta admin-cta" href="#/admin"><span class="fc-ic">${I.shield}</span><span><strong>Yönetici paneli</strong><span>Kullanıcılar, dershaneler, odalar ve şikâyetler. Sadece sen görürsün.</span></span><span class="fc-go">${I.next}</span></a>` : ''}
   ${Cloud.uid ? `<h2 class="menu-h">Hesabın</h2>
   <ul class="menu">
     <li><div class="mi"><span>E-posta</span><span class="mv">${esc(Cloud.user.email || '')}</span></div></li>
     <li><button data-act="pw-set"><span>${Cloud.hasPassword() ? 'Şifreni değiştir' : 'Şifre belirle'}</span><span class="mv">${Cloud.hasPassword() ? '••••••' : 'Diğer cihazlarda e-posta ve şifreyle gir'}</span></button></li>
   </ul>
+  ${teach ? schoolMenu : ''}
   <h2 class="menu-h">Bilgilerin</h2>` : ''}
   <ul class="menu">
-    <li><button data-act="p-info"><span>Ad, sınıf ve alan</span><span class="mv">${esc(p.name || '-')}${p.grade ? ', ' + esc(gradeName(p.grade)) : ''}, ${esc(TRACKS[p.track] ? TRACKS[p.track].name : '')}</span></button></li>
+    <li><button data-act="p-info"><span>${teach ? 'Ad ve branş' : 'Ad, sınıf ve alan'}</span><span class="mv">${esc(p.name || '-')}${teach ? (p.branch ? ', ' + esc(p.branch) : '') : (p.grade ? ', ' + esc(gradeName(p.grade)) : '') + ', ' + esc(TRACKS[p.track] ? TRACKS[p.track].name : '')}</span></button></li>
+    ${teach ? '' : `
     <li><button data-act="p-goal"><span>Hedefin</span><span class="mv">${g.dept ? esc((g.school ? g.school + ', ' : '') + g.dept) : 'Ekle'}</span></button></li>
     <li><button data-act="p-why"><span>Neden çalışıyorum?</span><span class="mv">${p.why ? esc(p.why) : 'Kendine bir not yaz'}</span></button></li>
     <li><button data-act="p-date"><span>YKS tarihi</span><span class="mv">${yd.getDate()} ${MONTHS[yd.getMonth()]} ${yd.getFullYear()}${p.yks ? '' : ' (tahmini)'}</span></button></li>
+    `}
     ${ENV === 'artifact' ? '' : `<li><button data-act="city"><span>Şehir</span><span class="mv">${c ? esc(c.name) : 'Seçilmedi'}</span></button></li>`}
-    ${ENV === 'artifact' ? '' : `<li><button data-act="yt-teach"><span>YouTube hocaların</span><span class="mv">${(() => { const n = Object.values(p.teachers || {}).flat().length; return n ? n + ' kanal' : 'Seçilmedi'; })()}</span></button></li>`}
+    ${ENV === 'artifact' || teach ? '' : `<li><button data-act="yt-teach"><span>YouTube hocaların</span><span class="mv">${(() => { const n = Object.values(p.teachers || {}).flat().length; return n ? n + ' kanal' : 'Seçilmedi'; })()}</span></button></li>`}
+  </ul>
+  <h2 class="menu-h">Ayarlar</h2>
+  <ul class="menu">
     <li><button data-act="p-palette"><span>Tema rengi</span><span class="mv"><span class="sw-mini" style="--a:${paletteOf(p.palette).sw[0]}"></span>${esc(paletteOf(p.palette).name)}</span></button></li>
     <li><button data-act="p-theme"><span>Açık ya da koyu</span><span class="mv">${theme}</span></button></li>
     <li><button data-act="p-sound"><span>Sayaç sesi</span><span class="mv">${p.sound === false ? 'Kapalı' : 'Açık'}</span></button></li>
@@ -422,14 +444,10 @@ function profileView(){
     <li><a href="#/medya"><span>Müzik ve video</span><span class="mv">YouTube, Spotify</span></a></li>
     <li><a href="#/kur"><span>Ana ekrana ekle</span><span class="mv">iPhone, Android, bilgisayar</span></a></li>
   </ul>
-  ${Cloud.uid ? `<h2 class="menu-h">Dershane</h2>
-  <ul class="menu">
-    ${Cloud.school.map(m => `<li><a href="#/dershane/${m.institution_id}"><span>${esc(m.inst ? m.inst.name : 'Dershane')}</span><span class="mv">${ROLE_NAME[m.role]}${m.cls ? ', ' + esc(m.cls.name) : ''}</span></a></li>`).join('')}
-    <li><button data-act="sc-join"><span>Kodla dershaneye katıl</span></button></li>
-    <li><a href="#/dershane"><span>Dershane paneli</span><span class="mv">${Cloud.anyStaff() ? 'Sınıflar ve programlar' : 'Hocalar için'}</span></a></li>
-  </ul>` : ''}
-  <h2 class="menu-h">Rozetlerin <span class="hint">${Object.keys(got).length}/${BADGES.length}</span></h2>
-  <ul class="badges">${BADGES.map(b => { const d = got[b.id]; return `<li class="badge${d ? ' on' : ''}"><span class="bd-ic" aria-hidden="true">${I.medal}</span><span class="bd-n">${esc(b.name)}</span><span class="bd-h">${d ? fmtDay(fromKey(d)) : esc(b.how)}</span></li>`; }).join('')}</ul>
+  ${teach ? '' : schoolMenu}
+  ${teach ? '' : `<h2 class="menu-h">Rozetlerin</h2>
+  <button class="badge-strip" data-act="badges"><span class="bs-icons">${BADGES.filter(b => got[b.id]).slice(-5).map(() => `<span class="bs-i on">${I.medal}</span>`).join('') || `<span class="bs-i">${I.medal}</span>`}</span>
+    <span class="bs-t"><strong>${nb}/${BADGES.length} rozet</strong><span>${nb ? 'Son kazandığın: ' + esc((BADGES.filter(b => got[b.id]).sort((a, b2) => String(got[b2.id]).localeCompare(String(got[a.id])))[0] || {}).name || '') : 'İlk görevini bitirince ilk rozetin gelir'}</span></span>${I.next}</button>`}
   <h2 class="menu-h">Verilerin</h2>
   <ul class="menu">
     <li><button data-act="backup"><span>Yedeği indir</span><span class="mv">JSON dosyası</span></button></li>
@@ -615,29 +633,52 @@ function pwSheet(after){
 }
 
 /* ---------- karşılama ---------- */
+const KIND_ICON = { student: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5V6a2 2 0 0 1 2-2h12v13H6a2 2 0 0 0-2 2.5Zm0 0A2 2 0 0 0 6 22h12v-5"/><path d="M8 8h6"/></svg>',
+  teacher: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v11H3z"/><path d="M7 20l2-4m8 4-2-4M7 9h6m-6 3h4"/></svg>' };
+const kindPick = (name, cur) => `<div class="kind-pick" role="radiogroup" aria-label="Hoca mısın, öğrenci misin?">
+  <label class="kind"><input type="radio" name="${name}" value="student"${cur === 'student' ? ' checked' : ''}>${KIND_ICON.student}<span><strong>Öğrenciyim</strong><span>Program, özet, odak ve odalar</span></span></label>
+  <label class="kind"><input type="radio" name="${name}" value="teacher"${cur === 'teacher' ? ' checked' : ''}>${KIND_ICON.teacher}<span><strong>Hocayım</strong><span>Sınıf, öğrenci ve program yönetimi</span></span></label></div>`;
+const branchInput = (id, v) => `<input id="${id}" class="input" maxlength="30" list="${id}-l" placeholder="Örn. Matematik" value="${esc(v || '')}" autocomplete="off"><datalist id="${id}-l">${BRANCHES.map(b => `<option value="${b}">`).join('')}</datalist>`;
+const gradeChips = (name, cur) => `<div class="chips-row wrap" role="radiogroup" aria-label="Sınıfın">${GRADES.map(([k, n]) => `<label class="fchip radio"><input type="radio" name="${name}" value="${k}"${cur === k ? ' checked' : ''}>${n}</label>`).join('')}</div>`;
+const trackChips = (name, cur) => `<div class="chips-row wrap" role="radiogroup" aria-label="Alanın">${Object.keys(TRACKS).map(k => `<label class="fchip radio"><input type="radio" name="${name}" value="${k}"${cur === k ? ' checked' : ''}>${TRACKS[k].name}</label>`).join('')}</div>`;
+/* hoca/öğrenci seçimine göre alanları göster */
+function bindKind(root, name){
+  const sync = () => { const k = (root.querySelector(`input[name="${name}"]:checked`) || {}).value || '';
+    root.querySelectorAll('[data-for]').forEach(el => { el.hidden = !k || !el.dataset.for.split(' ').includes(k); }); };
+  root.querySelectorAll(`input[name="${name}"]`).forEach(i => i.addEventListener('change', sync)); sync();
+}
 function welcomeView(){
   const gn = Cloud.uid ? Cloud.googleName() || (Cloud.profile && Cloud.profile.name) || '' : '';
+  const code = Cloud.uid && !Cloud.school.length;
   return `<main class="welcome">
-    <div class="w-mascot">${mascotSVG('happy', 88)}</div>
+    <div class="w-mascot">${mascotSVG('happy', 80)}</div>
     <h1>Hoş geldin!</h1>
-    <p class="w-lede">Ben ${MASCOT.name}. Birkaç bilgiyle programını sana göre hazırlayalım.</p>
+    <p class="w-lede">Ben ${MASCOT.name}. Önce seni tanıyayım.</p>
     <form id="w-form" class="w-form">
+      ${kindPick('w-kind', '')}
+      <div data-for="student teacher" class="w-rest">
       <label class="f-h" for="w-name">Adın ve soyadın</label>
-      <input id="w-name" class="input" maxlength="40" placeholder="Örn. Ayşe Yılmaz" autocomplete="name" value="${esc(titleCase(gn))}" required>
-      <p class="hint">Dershanedeki hocaların ve oda arkadaşların seni bu adla görür.</p>
-      <p class="f-h">Kaçıncı sınıftasın?</p>
-      <div class="chips-row wrap" role="radiogroup" aria-label="Sınıfın">${GRADES.map(([k, n]) => `<label class="fchip radio"><input type="radio" name="w-grade" value="${k}"${'' === k ? ' checked' : ''}>${n}</label>`).join('')}</div>
-      <p class="f-h">Alanın</p>
-      <div class="chips-row wrap">${Object.keys(TRACKS).map((k, i) => `<label class="fchip radio"><input type="radio" name="w-track" value="${k}"${i === 0 ? ' checked' : ''}>${TRACKS[k].name}</label>`).join('')}</div>
-      <label class="f-h" for="w-goal">Hedef bölümün (isteğe bağlı)</label>
-      <input id="w-goal" class="input" maxlength="60" placeholder="Örn. Bilgisayar Mühendisliği" autocomplete="off">
-      ${Cloud.uid && !Cloud.school.length ? `<label class="f-h" for="w-code">Dershane kodun (varsa)</label>
-      <input id="w-code" class="input code-in" maxlength="10" placeholder="Hocanın verdiği kod" autocomplete="off" autocapitalize="characters">` : ''}
-      ${Cloud.uid && Cloud.needsPassword() ? `<label class="f-h" for="w-pw">Şifre belirle (isteğe bağlı)</label>
+      <input id="w-name" class="input" maxlength="40" placeholder="Örn. Ayşe Yılmaz" autocomplete="name" value="${esc(titleCase(gn))}">
+      <div data-for="student">
+        <p class="f-h">Kaçıncı sınıftasın?</p>${gradeChips('w-grade', '')}
+        <p class="f-h">Alanın</p>${trackChips('w-track', 'SAY')}
+        <label class="f-h" for="w-goal">Hedef bölümün <span class="f-opt">isteğe bağlı</span></label>
+        <input id="w-goal" class="input" maxlength="60" placeholder="Örn. Bilgisayar Mühendisliği" autocomplete="off">
+        ${code ? `<label class="f-h" for="w-code">Dershane kodun <span class="f-opt">varsa</span></label>
+        <input id="w-code" class="input code-in" maxlength="10" placeholder="Hocanın verdiği 6 haneli kod" autocomplete="off" autocapitalize="characters">` : ''}
+      </div>
+      <div data-for="teacher">
+        <label class="f-h" for="w-branch">Branşın <span class="f-opt">isteğe bağlı</span></label>${branchInput('w-branch', '')}
+        ${code ? `<label class="f-h" for="w-tcode">Hoca davet kodu <span class="f-opt">varsa</span></label>
+        <input id="w-tcode" class="input code-in" maxlength="10" placeholder="Dershane kurucusunun verdiği kod" autocomplete="off" autocapitalize="characters">
+        <p class="hint">Dershaneyi sen kuracaksan boş bırak; sonra Dershane sayfasından kurarsın.</p>` : ''}
+      </div>
+      ${Cloud.uid && Cloud.needsPassword() ? `<label class="f-h" for="w-pw">Şifre belirle <span class="f-opt">isteğe bağlı</span></label>
       <input id="w-pw" class="input" type="password" autocomplete="new-password" minlength="6" placeholder="En az 6 karakter">
       <p class="hint">Diğer cihazlarda ${esc(Cloud.user.email || '')} ve bu şifreyle girersin.</p>` : ''}
       <p class="err" id="w-e" role="alert"></p>
       <button class="btn primary lg" type="submit">Başla</button>
+      </div>
     </form>
     <p class="w-credit">Esat Taha Polat tarafından geliştirildi. Açık kaynak, ücretsiz.</p>
   </main>`;
@@ -651,26 +692,46 @@ function renderNav(show){
   nav.hidden = false;
   const active = route.page === 'konu' ? 'kitaplik' : route.page === 'oda' ? 'odalar' : /^(yanlis|not|tekrar)$/.test(route.page) ? 'defter' : route.page === 'kur' ? 'profil' : route.page;
   const wide = matchMedia('(min-width: 900px)').matches;
-  const tabs = TABS.filter(t => ((t.id !== 'odalar' && t.id !== 'dershane') || Cloud.enabled) && (!t.admin || Cloud.isAdmin));
-  nav.innerHTML = `<a class="rail-brand" href="#/bugun" aria-label="Ders Özetim">${mascotSVG('ok', 34)}<span>Ders Özetim</span></a>` + tabs.map(t => `<a class="tab${t.rail ? ' rail-only' : ''}${active === t.id || (!wide && t.id === 'defter' && (active === 'kitaplik' || active === 'lab')) ? ' on' : ''}" href="#/${t.id}"${active === t.id ? ' aria-current="page"' : ''}>${t.icon}<span>${t.label}</span>${t.id === 'odak' ? '<span class="tab-b" id="tab-odak-b" hidden></span>' : ''}</a>`).join('');
+  const tabs = tabsFor().filter(t => ((t.id !== 'odalar' && t.id !== 'dershane') || Cloud.enabled) && (!t.admin || Cloud.isAdmin));
+  nav.innerHTML = `<a class="rail-brand" href="#/bugun" aria-label="Ders Özetim">${mascotSVG('ok', 34)}<span>Ders Özetim</span></a>` + tabs.map(t => `<a class="tab${t.rail ? ' rail-only' : ''}${active === t.id || (!wide && (isTeacher() ? t.id === 'lab' && (active === 'kitaplik' || active === 'defter') : t.id === 'defter' && (active === 'kitaplik' || active === 'lab'))) ? ' on' : ''}" href="#/${t.id}"${active === t.id ? ' aria-current="page"' : ''}>${t.icon}<span>${t.label}</span>${t.id === 'odak' ? '<span class="tab-b" id="tab-odak-b" hidden></span>' : ''}</a>`).join('');
 }
-/* eski hesaplar: ad soyad ya da sınıf eksikse bir kez sorulur */
+/* ad, hoca/öğrenci ve sınıf: tek form, karşılama dışında her yerde aynı */
+function infoForm(id){
+  const p = DB.d.profile, k = p.kind || (p.grade ? 'student' : ''), staff = Cloud.anyStaff();
+  return `${staff ? '' : kindPick(id + '-k', k)}
+    <label class="f-h" for="${id}-n">Adın ve soyadın</label><input id="${id}-n" class="input" value="${esc(p.name || '')}" maxlength="40" autocomplete="name" placeholder="Örn. Ayşe Yılmaz">
+    <div data-for="student"><p class="f-h">Kaçıncı sınıftasın?</p>${gradeChips(id + '-g', p.grade)}<p class="f-h">Alanın</p>${trackChips(id + '-t', p.track)}</div>
+    <div data-for="teacher"><label class="f-h" for="${id}-b">Branşın <span class="f-opt">isteğe bağlı</span></label>${branchInput(id + '-b', p.branch)}${staff ? '<p class="hint">Dershanede hoca olduğun için hesabın hoca hesabı.</p>' : ''}</div>
+    <p class="err" id="${id}-e" role="alert"></p><div class="row"><button class="btn primary" id="${id}-go">Kaydet</button></div>`;
+}
+function bindInfoForm(box, id, done){
+  const staff = Cloud.anyStaff();
+  const kindOf = () => staff ? 'teacher' : ($(`input[name="${id}-k"]:checked`, box) || {}).value || '';
+  const sync = () => { const k = kindOf(); box.querySelectorAll('[data-for]').forEach(el => { el.hidden = el.dataset.for !== k; }); };
+  box.querySelectorAll(`input[name="${id}-k"]`).forEach(i => i.addEventListener('change', sync)); sync();
+  $(`#${id}-go`, box).addEventListener('click', () => {
+    const e = $(`#${id}-e`, box), k = kindOf(), p = DB.d.profile;
+    const n = titleCase($(`#${id}-n`, box).value.trim().replace(/\s+/g, ' ')).slice(0, 40);
+    if (!k){ e.textContent = 'Hoca mı öğrenci mi olduğunu seç.'; return; }
+    if (!fullNameOk(n)){ e.textContent = 'Adını ve soyadını yaz.'; return; }
+    const gr = $(`input[name="${id}-g"]:checked`, box);
+    if (k === 'student' && !gr){ e.textContent = 'Kaçıncı sınıfta olduğunu seç.'; return; }
+    p.name = n; p.kind = k;
+    if (k === 'teacher'){ p.grade = ''; p.branch = titleCase($(`#${id}-b`, box).value.trim()).slice(0, 30); }
+    else { p.grade = gr.value; const t = $(`input[name="${id}-t"]:checked`, box); if (t) p.track = t.value; }
+    ui.plan = null; DB.save(); closeSheet(); render(); if (done) done();
+  });
+}
+/* eski hesaplar: ad soyad, hoca/öğrenci ya da sınıf eksikse bir kez sorulur */
+const profileDone = p => fullNameOk(p.name) && (p.kind === 'teacher' || (p.kind === 'student' || !p.kind) && p.grade);
 function profileNudge(){
   const p = DB.d.profile;
-  if (!Cloud.uid || ui.nudged || sheetEl || route.page === 'oda' || (fullNameOk(p.name) && p.grade)) return;
+  if (!Cloud.uid || ui.nudged || sheetEl || route.page === 'oda' || profileDone(p)) return;
   ui.nudged = true;
   setTimeout(() => {
     if (sheetEl || route.page === 'oda') return;
-    const box = openSheet('Profilini tamamla', `<p class="hint">Dershanedeki hocaların ve oda arkadaşların seni tanısın diye adını, soyadını ve sınıfını ekle.</p>
-      <label class="f-h" for="pn-n">Adın ve soyadın</label><input id="pn-n" class="input" value="${esc(p.name || '')}" maxlength="40" autocomplete="name" placeholder="Örn. Ayşe Yılmaz">
-      <p class="f-h">Kaçıncı sınıftasın?</p><div class="chips-row wrap">${GRADES.map(([k, n]) => `<label class="fchip radio"><input type="radio" name="pn-g" value="${k}"${p.grade === k ? ' checked' : ''}>${n}</label>`).join('')}</div>
-      <p class="err" id="pn-e" role="alert"></p><div class="row"><button class="btn primary" id="pn-go">Kaydet</button></div>`, { sticky: true });
-    $('#pn-go', box).addEventListener('click', () => {
-      const n = titleCase($('#pn-n', box).value.trim().replace(/\s+/g, ' ')).slice(0, 40), gr = $('input[name="pn-g"]:checked', box);
-      if (!fullNameOk(n)){ $('#pn-e', box).textContent = 'Adını ve soyadını yaz.'; return; }
-      if (!gr){ $('#pn-e', box).textContent = 'Kaçıncı sınıfta olduğunu seç.'; return; }
-      p.name = n; p.grade = gr.value; ui.plan = null; DB.save(); closeSheet(); render(); toast('Profilin güncellendi');
-    });
+    const box = openSheet('Profilini tamamla', `<p class="hint">Dershanedeki hocaların, öğrencilerin ve oda arkadaşların seni tanısın.</p>${infoForm('pn')}`, { sticky: true });
+    bindInfoForm(box, 'pn', () => toast('Profilin güncellendi'));
   }, 700);
 }
 const VIEWS = {};
@@ -695,27 +756,41 @@ function render(){
   }
 }
 function bindWelcome(){
-  $('#w-form').addEventListener('submit', async e => {
+  const f = $('#w-form');
+  // "student teacher" yazan bölüm her iki seçimde de görünür
+  const sync = () => { const k = ($('input[name="w-kind"]:checked') || {}).value || '';
+    f.querySelectorAll('[data-for]').forEach(el => { el.hidden = !k || !el.dataset.for.split(' ').includes(k); });
+    if (k && !sync.done){ sync.done = true; setTimeout(() => { const n = $('#w-name'); if (n && !n.value) n.focus(); }, 50); } };
+  f.querySelectorAll('input[name="w-kind"]').forEach(i => i.addEventListener('change', sync)); sync();
+  f.addEventListener('submit', async e => {
     e.preventDefault();
+    const err = t => { $('#w-e').textContent = t; };
+    const kind = ($('input[name="w-kind"]:checked') || {}).value;
+    if (!kind){ err('Hoca mı öğrenci mi olduğunu seç.'); return; }
+    const teacher = kind === 'teacher';
+    const name = titleCase($('#w-name').value.trim().replace(/\s+/g, ' ')).slice(0, 40);
+    if (!fullNameOk(name)){ err('Adını ve soyadını yaz.'); $('#w-name').focus(); return; }
+    const gr = $('input[name="w-grade"]:checked');
+    if (!teacher && !gr){ err('Kaçıncı sınıfta olduğunu seç.'); return; }
     const pw = $('#w-pw') ? $('#w-pw').value : '';
     if (pw){
-      if (pw.length < 6){ $('#w-e').textContent = 'Şifre en az 6 karakter olmalı ya da boş bırak.'; return; }
-      try { await Cloud.setPassword(pw); DB.d.profile.pwSet = true; } catch(err){ $('#w-e').textContent = AUTH_ERR(err); return; }
+      if (pw.length < 6){ err('Şifre en az 6 karakter olmalı ya da boş bırak.'); return; }
+      try { await Cloud.setPassword(pw); DB.d.profile.pwSet = true; } catch(e2){ err(AUTH_ERR(e2)); return; }
     }
-    const code = $('#w-code') ? $('#w-code').value.trim() : '';
+    const ci = $(teacher ? '#w-tcode' : '#w-code'), code = ci ? ci.value.trim() : '';
     if (code){
       try { await Cloud.joinCode(code); }
-      catch(err){ $('#w-e').textContent = (err.message || 'Kod geçerli değil.') + ' Kodu boş bırakıp sonra Profil sayfasından da katılabilirsin.'; return; }
+      catch(e2){ err((e2.message || 'Kod geçerli değil.') + ' Kodu boş bırakıp sonra Dershane sayfasından da katılabilirsin.'); return; }
     }
-    const name = titleCase($('#w-name').value.trim().replace(/\s+/g, ' ')).slice(0, 40);
-    if (!fullNameOk(name)){ $('#w-e').textContent = 'Adını ve soyadını yaz.'; $('#w-name').focus(); return; }
-    const gr = $('input[name="w-grade"]:checked');
-    if (!gr){ $('#w-e').textContent = 'Kaçıncı sınıfta olduğunu seç.'; return; }
-    const tr = $('input[name="w-track"]:checked');
-    DB.d.profile.name = name; DB.d.profile.grade = gr.value; DB.d.profile.track = tr ? tr.value : 'SAY'; DB.d.onboarded = true;
-    const gd = $('#w-goal').value.trim(); if (gd) DB.d.profile.goal = { school: '', dept: titleCase(gd).slice(0, 60) };
-    DB.save();
-    go('#/bugun');
+    const p = DB.d.profile;
+    p.name = name; p.kind = kind;
+    if (teacher){ p.grade = ''; p.branch = titleCase($('#w-branch').value.trim()).slice(0, 30); }
+    else {
+      p.grade = gr.value; const tr = $('input[name="w-track"]:checked'); p.track = tr ? tr.value : 'SAY';
+      const gd = $('#w-goal').value.trim(); if (gd) p.goal = { school: '', dept: titleCase(gd).slice(0, 60) };
+    }
+    DB.d.onboarded = true; DB.save();
+    go(teacher && Cloud.school.length ? '#/dershane/' + Cloud.school[0].institution_id : '#/bugun');
   });
 }
 function applyTheme(){
@@ -1006,20 +1081,13 @@ const ACT = {
     $('#fs-50', box).addEventListener('click', () => saveF(50, 10, 20));
   },
   city: () => citySheet(),
+  badges: () => {
+    const got = DB.d.stats.badges || {};
+    openSheet('Rozetlerin', `<p class="hint">${Object.keys(got).length}/${BADGES.length} rozet kazandın.</p><ul class="badges">${BADGES.map(b => { const d = got[b.id]; return `<li class="badge${d ? ' on' : ''}"><span class="bd-ic" aria-hidden="true">${I.medal}</span><span class="bd-n">${esc(b.name)}</span><span class="bd-h">${d ? fmtDay(fromKey(d)) : esc(b.how)}</span></li>`; }).join('')}</ul>`);
+  },
   'p-info': () => {
-    const p = DB.d.profile;
-    const box = openSheet('Ad, sınıf ve alan', `<label class="f-h" for="pi-n">Adın ve soyadın</label><input id="pi-n" class="input" value="${esc(p.name)}" maxlength="40" autocomplete="name" autofocus>
-      <p class="f-h">Kaçıncı sınıftasın?</p><div class="chips-row wrap">${GRADES.map(([k, n]) => `<label class="fchip radio"><input type="radio" name="pi-g" value="${k}"${p.grade === k ? ' checked' : ''}>${n}</label>`).join('')}</div>
-      <p class="f-h">Alanın</p><div class="chips-row wrap">${Object.keys(TRACKS).map(k => `<label class="fchip radio"><input type="radio" name="pi-t" value="${k}"${p.track === k ? ' checked' : ''}>${TRACKS[k].name}</label>`).join('')}</div>
-      <p class="err" id="pi-e" role="alert"></p><div class="row"><button class="btn primary" id="pi-go">Kaydet</button></div>`);
-    $('#pi-go', box).addEventListener('click', () => {
-      const n = titleCase($('#pi-n', box).value.trim().replace(/\s+/g, ' ')).slice(0, 40);
-      if (!fullNameOk(n)){ $('#pi-e', box).textContent = 'Adını ve soyadını yaz.'; return; }
-      p.name = n;
-      const gr = $('input[name="pi-g"]:checked', box); if (gr) p.grade = gr.value;
-      const t = $('input[name="pi-t"]:checked', box); if (t) p.track = t.value;
-      ui.plan = null; DB.save(); closeSheet(); render();
-    });
+    const box = openSheet(isTeacher() ? 'Ad ve branş' : 'Ad, sınıf ve alan', infoForm('pi'));
+    bindInfoForm(box, 'pi');
   },
   'p-date': () => {
     const box = openSheet('YKS tarihi', `<p class="hint">ÖSYM 2027 YKS tarihini henüz açıklamadı; 19 Haziran 2027 tahmini bir tarihtir. Açıklanınca buradan güncelle.</p>

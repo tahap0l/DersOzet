@@ -922,3 +922,47 @@ button.tlink.yt{background:none;border:0;font:inherit;font-size:inherit;cursor:p
 .fchip.ghost{background:transparent;border-style:dashed}
 .yt-new{display:inline-flex;gap:6px;align-items:center}
 .yt-new .input.sm{height:38px;padding:6px 10px;width:180px;max-width:50vw}
+
+/* ---------- hoca mı öğrenci mi ---------- */
+.kind-pick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 6px}
+.kind{position:relative;display:flex;flex-direction:column;gap:10px;padding:16px 14px;border-radius:var(--r-card);background:var(--surface);border:2px solid var(--line);cursor:pointer;transition:border-color .15s,background .15s}
+.kind input{position:absolute;opacity:0;pointer-events:none}
+.kind > svg{width:30px;height:30px;color:var(--brand)}
+.kind strong{display:block;font-size:17px;font-family:'Bricolage Grotesque','Nunito',system-ui,sans-serif}
+.kind span span{display:block;font-size:13px;color:var(--ink-2);line-height:1.35;margin-top:2px}
+.kind:has(input:checked){border-color:var(--brand);background:var(--brand-soft)}
+.kind:has(input:focus-visible){outline:3px solid var(--brand);outline-offset:2px}
+.f-opt{font-weight:600;color:var(--ink-2);font-size:13px;margin-left:4px}
+.w-rest{display:flex;flex-direction:column;margin-top:18px}
+.w-rest > [data-for]{display:flex;flex-direction:column}
+.sheet .kind-pick{margin-bottom:2px}
+
+/* ---------- hocanın Bugün sayfası ---------- */
+.t-inst .block-head h2{min-width:0;overflow-wrap:anywhere}
+.t-inst > .hint{margin:-4px 0 10px}
+.t-classes{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:8px}
+.t-classes a{display:grid;grid-template-columns:1fr auto auto;grid-template-areas:"n p go" "s s go" "bar bar go";align-items:center;column-gap:10px;padding:12px 14px;border-radius:16px;background:var(--surface-2);color:var(--ink);text-decoration:none}
+.t-classes .tc-n{grid-area:n;font-weight:800}
+.t-classes .tc-s{grid-area:s;font-size:13px;color:var(--ink-2)}
+.t-classes .tc-p{grid-area:p;font-weight:800;font-size:14px;color:var(--brand);font-variant-numeric:tabular-nums}
+.t-classes .minibar{grid-area:bar;max-width:none;margin:6px 0 0;background:var(--surface)}
+.t-classes svg{grid-area:go;color:var(--ink-2);width:18px;height:18px}
+.t-tools{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:10px}
+.t-tools a{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:16px;background:var(--surface-2);color:var(--ink);text-decoration:none;height:100%}
+.t-tools .tt-ic{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:var(--brand-soft);color:var(--brand);flex:none}
+.t-tools strong{display:block}
+.t-tools span span{display:block;font-size:13px;color:var(--ink-2);line-height:1.35}
+.tag.t{color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}
+
+/* ---------- profilde rozet şeridi ---------- */
+.badge-strip{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;margin:0 0 8px;border:0;border-radius:var(--r-card);background:var(--surface);box-shadow:var(--shadow);text-align:left;cursor:pointer}
+.bs-icons{display:flex;flex:none}
+.bs-i{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--surface-2);color:var(--ink-2);border:2px solid var(--surface)}
+.bs-i + .bs-i{margin-left:-10px}
+.bs-i.on{background:var(--note);color:var(--note-ink)}
+.bs-i svg{width:18px;height:18px}
+.bs-t{flex:1;min-width:0}
+.bs-t strong{display:block}
+.bs-t span{display:block;font-size:13px;color:var(--ink-2)}
+.badge-strip > svg{color:var(--ink-2)}
+.code-in::placeholder{font-size:15px;letter-spacing:0;text-transform:none;font-weight:600}

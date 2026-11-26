@@ -184,12 +184,15 @@ const Cloud = {
   },
 
   /* ---------- profil (sınıf arkadaşları ve hocalar adını görür) ---------- */
-  profileRow(){ const p = DB.d.profile, g = p.goal || {}; return { name: (p.name || '').slice(0, 40), grade: GRADES.some(r => r[0] === p.grade) ? p.grade : '', track: String(p.track || 'SAY').toLowerCase(), goal: [g.school, g.dept].filter(Boolean).join(', ').slice(0, 80), palette: p.palette || 'lavanta' }; },
+  profileRow(){ const p = DB.d.profile, g = p.goal || {}, t = p.kind === 'teacher'; return { name: (p.name || '').slice(0, 40), kind: t ? 'teacher' : 'student', branch: t ? String(p.branch || '').slice(0, 30) : '', grade: !t && GRADES.some(r => r[0] === p.grade) ? p.grade : '', track: String(p.track || 'SAY').toLowerCase(), goal: [g.school, g.dept].filter(Boolean).join(', ').slice(0, 80), palette: p.palette || 'lavanta' }; },
   async loadProfile(){
     const { data } = await this.sb.from('profiles').select('*').eq('id', this.uid).maybeSingle();
     this.profile = data || null;
     if (data){
-      this.lastProfile = JSON.stringify({ name: data.name, grade: data.grade || '', track: data.track, goal: data.goal, palette: data.palette });
+      this.lastProfile = JSON.stringify({ name: data.name, kind: data.kind || 'student', branch: data.branch || '', grade: data.grade || '', track: data.track, goal: data.goal, palette: data.palette });
+      // eski hesaplar: bu cihazda seçim yoksa sunucudaki geçerli (dershanede hoca olanı sunucu hoca yapar)
+      if (!DB.d.profile.kind && DB.d.onboarded && data.kind){ DB.d.profile.kind = data.kind; if (data.kind === 'teacher') DB.d.profile.grade = ''; }
+      if (!DB.d.profile.branch && data.branch) DB.d.profile.branch = data.branch;
       if (data.name && (!DB.d.profile.name || (!fullNameOk(DB.d.profile.name) && fullNameOk(data.name)))) DB.d.profile.name = data.name;
       if (!DB.d.profile.grade && data.grade) DB.d.profile.grade = data.grade;
     }
@@ -210,6 +213,7 @@ const Cloud = {
       .eq('user_id', this.uid).order('joined_at');
     if (error) throw error;
     this.school = data || [];
+    if (this.anyStaff() && DB.d.profile.kind !== 'teacher'){ DB.d.profile.kind = 'teacher'; DB.d.profile.grade = ''; DB.save(); }
     return this.school;
   },
   async rpc(fn, args){ const { data, error } = await this.sb.rpc(fn, args || {}); if (error) throw error; return data; },

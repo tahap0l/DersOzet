@@ -104,7 +104,10 @@ function newNote(kind, extra){
 }
 
 /* ---------- liste sayfaları ---------- */
+const defterHead = () => `<header class="page-head"><h1>${isTeacher() ? 'Ders araçları' : 'Defter'}</h1></header>`;
 function defterSeg(on){
+  // hocada: derste kullanılan araçlar önde
+  if (isTeacher()) return `<div class="seg" role="tablist" aria-label="Ders araçları">${[['lab', 'Deneyler'], ['kitaplik', 'Özetler'], ['defter', 'Notlar']].map(([k, n]) => `<a class="seg-b${on === k ? ' on' : ''}" href="#/${k}" role="tab" aria-selected="${on === k}">${n}</a>`).join('')}</div>`;
   return `<div class="seg" role="tablist" aria-label="Defter"><a class="seg-b${on === 'defter' ? ' on' : ''}" href="#/defter" role="tab" aria-selected="${on === 'defter'}">Notlar</a><a class="seg-b${on === 'yanlis' ? ' on' : ''}" href="#/yanlis" role="tab" aria-selected="${on === 'yanlis'}">Yanlışlar${NT.due().length ? ` <b class="seg-n">${NT.due().length}</b>` : ''}</a><a class="seg-b${on === 'kitaplik' ? ' on' : ''}" href="#/kitaplik" role="tab" aria-selected="${on === 'kitaplik'}">Özetler</a><a class="seg-b${on === 'lab' ? ' on' : ''}" href="#/lab" role="tab" aria-selected="${on === 'lab'}">Deneyler</a></div>`;
 }
 function ntWhen(s){ const d = new Date(s), t = new Date(); const days = Math.round((new Date(t.toDateString()) - new Date(d.toDateString())) / 864e5); return days === 0 ? 'bugün ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) : days === 1 ? 'dün' : d.getDate() + ' ' + MONTHS[d.getMonth()]; }
@@ -113,7 +116,7 @@ function notesView(){
   if (!Cloud.uid) return emptyBlock('Giriş gerekli', 'Notların hesabına kaydedilir.', '');
   ntLoad();
   const list = (NT.list || []).filter(n => n.kind === 'note');
-  return `<header class="page-head"><h1>Defter</h1></header>
+  return `${defterHead()}
   ${defterSeg('defter')}
   <div class="row"><button class="btn primary" data-act="nt-new">Yeni not</button></div>
   ${NT.err ? `<p class="err">${esc(NT.err)}</p>` : ''}
@@ -132,7 +135,7 @@ function wrongsView(){
   let list = all.filter(n => !f.subj || n.subject === f.subj);
   list = f.status === 'due' ? list.filter(n => due.includes(n)) : f.status === 'learned' ? list.filter(n => n.status === 'learned') : list.filter(n => n.status === 'open');
   const byReason = REASONS.map(r => [r, all.filter(n => n.reason === r).length]).filter(x => x[1]);
-  return `<header class="page-head"><h1>Defter</h1></header>
+  return `${defterHead()}
   ${defterSeg('yanlis')}
   <section class="wrong-hero"><div><p class="wh-n">${due.length}</p><p class="wh-l">${due.length ? 'soru bugün tekrar bekliyor' : 'bugün tekrar edilecek soru yok'}</p></div>
     <div class="row">${due.length ? '<a class="btn primary" href="#/tekrar">Tekrara başla</a>' : ''}<button class="btn${due.length ? '' : ' primary'}" data-act="wr-new">Yanlış ekle</button></div></section>

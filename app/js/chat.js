@@ -76,13 +76,15 @@ Kurallar:
 - Formülleri düz metinle yaz (örnek: a^2 + b^2 = c^2, √x, x/y). LaTeX kullanma.
 - Fotoğraftaki yazıyı okuyamıyorsan ya da bir bilgiden emin değilsen bunu açıkça söyle; uydurma.
 - Ders dışı konulara kısa cevap ver ve nazikçe derslere dön.
-Öğrenci: ${firstName(p.name) || 'öğrenci'}${p.grade ? ', ' + gradeName(p.grade) : ''}, alan: ${tr}, YKS'ye ${daysLeft()} gün var${p.goal && p.goal.dept ? ', hedefi: ' + (p.goal.school ? p.goal.school + ' ' : '') + p.goal.dept : ''}.
-${tops.length ? 'Bugünkü konuları: ' + tops.map(t => t.subject + ' - ' + t.name).join(', ') + '.' : 'Bugün programında konu yok.'}`;
+${isTeacher() ? `Bu kullanıcı öğrenci değil, dershanede ${p.branch ? p.branch + ' hocası' : 'hoca'}: ${firstName(p.name) || ''} Hoca. Ona meslektaşın gibi konuş; soru çözümü, örnek soru hazırlama, konu anlatım fikri ve sınıf yönetiminde yardım et. Öğrencilere uygun soru isterse zorluk seviyesini ve cevap anahtarını da ver.`
+  : `Öğrenci: ${firstName(p.name) || 'öğrenci'}${p.grade ? ', ' + gradeName(p.grade) : ''}, alan: ${tr}, YKS'ye ${daysLeft()} gün var${p.goal && p.goal.dept ? ', hedefi: ' + (p.goal.school ? p.goal.school + ' ' : '') + p.goal.dept : ''}.
+${tops.length ? 'Bugünkü konuları: ' + tops.map(t => t.subject + ' - ' + t.name).join(', ') + '.' : 'Bugün programında konu yok.'}`}`;
 }
 
 function chSuggestions(){
   const tops = typeof todayTopics === 'function' ? todayTopics() : [];
   const out = [];
+  if (isTeacher()){ const b = DB.d.profile.branch || 'Matematik'; return [`${b} için 5 soruluk kısa bir sınav hazırla, cevap anahtarıyla`, 'Fotoğraftaki soruyu adım adım çöz', `${b} dersinde zor bir konuyu öğrencilere nasıl anlatırım?`, 'Programını yapmayan öğrenciyle nasıl konuşurum?']; }
   if (tops[0]) out.push(`${tops[0].name} konusunu kısaca anlat`);
   out.push('Fotoğraftaki soruyu adım adım çöz');
   if (tops[1]) out.push(`Bana ${tops[1].name} konusundan 3 soru sor`);

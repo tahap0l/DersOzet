@@ -25,7 +25,7 @@ function labView(){
   if (route.arg) return simView();
   const groups = LAB_SUBJ.map(sub => [sub, LAB.sims.filter(s => s.subject === sub)]).filter(g => g[1].length);
   const narrow = typeof defterSeg === 'function' && Cloud.uid && !matchMedia('(min-width: 900px)').matches;
-  return `${narrow ? '<header class="page-head"><h1>Defter</h1></header>' + defterSeg('lab') : '<header class="page-head"><h1>Laboratuvar</h1></header>'}
+  return `${narrow ? defterHead() + defterSeg('lab') : '<header class="page-head"><h1>Laboratuvar</h1></header>'}
     <p class="sub">Konuları dokunarak öğren: kaydırıcıyla değiştir, sürükle, ne olduğunu izle. ${LAB.sims.length} deney ve animasyon.</p>
     ${groups.map(([sub, list]) => `<section class="block"><h2 class="f-h">${esc(sub)}</h2><ul class="lab-grid">${list.map(s => `<li><a class="lab-card" href="#/lab/${s.id}" style="--c:${subjColor(s.subject)}">
       <span class="lc-ic" aria-hidden="true">${LAB_IC[s.subject] || I.flask}</span><span class="lc-b"><strong>${esc(s.title)}</strong><span>${esc(s.blurb)}</span></span></a></li>`).join('')}</ul></section>`).join('')}`;

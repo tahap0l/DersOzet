@@ -73,10 +73,10 @@ function mascotLines(){
   return lines;
 }
 
-function mascotCard(){
+function mascotCard(say){
   const tops = todayTopics().filter(t => t.sum);
   const qs = tops.reduce((a, t) => a + ((t.sum.summary.questions || []).length), 0);
-  const lines = mascotLines();
+  const lines = say || mascotLines();
   const wd = typeof NT !== 'undefined' ? NT.due().length : 0;
   if (wd) lines.push(`Yanlış defterinde bugün ${wd} soru seni bekliyor.`);
   const sim = typeof simsFor === 'function' ? todayTopics().map(t => [t, simsFor(t.slug)[0]]).find(x => x[1]) : null;
