@@ -2,7 +2,7 @@
  * Çevrimdışı çalışma ve hızlı açılış. Uygulama dosyaları kurulumda bir kez indirilir ve sonra
  * doğrudan telefondan açılır; ağ beklenmez. Yeni sürüm yayımlarken VERSION'ı artır: yeni çalışan
  * dosyaları arka planda indirir, hazır olunca sayfa bir kez yenilenir. */
-const VERSION = 'dersozetim-3.10.1';
+const VERSION = 'dersozetim-3.10.2';
 const CORE = [
   './', 'manifest.webmanifest', 'css/app.css',
   'js/config.js', 'js/core.js', 'js/motivation.js', 'js/ai.js', 'js/pdf.js', 'js/cloud.js', 'js/app.js', 'js/mascot.js', 'js/school.js', 'js/rooms.js', 'js/spotify.js', 'js/media.js', 'js/admin.js', 'js/notes.js', 'js/install.js', 'js/chat.js', 'js/youtube.js', 'js/plan.js', 'js/lab.js', 'js/sims-fizik.js', 'js/sims-kimya.js', 'js/sims-mat.js', 'js/main.js', 'data/library.json',
@@ -15,8 +15,8 @@ const base = self.location.href.replace(/sw\.js.*$/, '');
 const CORE_URLS = new Set(CORE.map(p => new URL(p, base).href));
 
 self.addEventListener('install', e => {
-  // cache: 'reload' tarayıcının eski kopyasını değil sunucudaki son sürümü alır
-  e.waitUntil(caches.open(VERSION).then(c => Promise.all(CORE.map(p => fetch(new Request(p, { cache: 'reload' })).then(r => {
+  // cache: 'no-cache' sunucuya sorar: dosya değişmediyse yeniden indirmez (304), değiştiyse yenisini alır
+  e.waitUntil(caches.open(VERSION).then(c => Promise.all(CORE.map(p => fetch(new Request(p, { cache: 'no-cache' })).then(r => {
     if (!r.ok) throw new Error(p + ' ' + r.status);
     return c.put(new URL(p, base).href, r);
   })))).then(() => self.skipWaiting()));

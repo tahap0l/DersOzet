@@ -25,12 +25,32 @@
 <link rel="preload" href="data/library.json" as="fetch" crossorigin>
 <script>
 /* Açılış bekçisi: uygulama 12 saniyede açılmazsa ya da bir dosya çalışmazsa "Yükleniyor…"da takılı
-   kalmak yerine sebebini ve onarma düğmesini gösterir. Notların silinmez. */
+   kalmak yerine sebebini ve onarma düğmesini gösterir. Notların silinmez.
+   Açılış kaydı: takılan ya da yavaş açılan cihazda tarayıcı bilgisi, hata ve hangi adımda takıldığı
+   sunucuya kaydedilir (ad, e-posta ya da içerik gönderilmez); geliştirici sorunu buradan bulur. */
 (function(){
   var errs = [], shown = false;
+  var D = window.__diag = { m: {}, errs: errs, sent: 0,
+    mark: function(k){ if (!(k in D.m)) D.m[k] = Math.round(performance.now()); },
+    send: function(kind, extra){
+      try {
+        if (D.sent >= 6) return; D.sent++;
+        var C = window.DO_CONFIG || {}, sa = !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
+        var cn = navigator.connection || {}, data = { m: D.m, errs: errs.slice(0, 5), now: Math.round(performance.now()), sa: sa,
+          sw: !!(navigator.serviceWorker && navigator.serviceWorker.controller), on: navigator.onLine, net: cn.effectiveType || '',
+          scr: screen.width + 'x' + screen.height, page: (location.hash || '').split('/')[1] || '' };
+        if (extra) for (var k in extra) data[k] = extra[k];
+        fetch((C.supabaseUrl || 'https://gwmetoexnklzdyzrvgdv.supabase.co') + '/rest/v1/client_logs', { method: 'POST', keepalive: true,
+          headers: { apikey: C.supabaseKey || 'sb_publishable_jwY5M8lzep4mvJoqUQQbzQ_scsnOrDK', 'content-type': 'application/json', prefer: 'return=minimal' },
+          body: JSON.stringify({ kind: kind, ver: typeof APP !== 'undefined' ? APP.version : '', ua: navigator.userAgent.slice(0, 300), data: data }) }).catch(function(){});
+      } catch(e){}
+    } };
+  D.mark('html');
+  document.addEventListener('DOMContentLoaded', function(){ D.mark('dom'); });
   function old(){ try { new Function('var a={};return a?.b??1'); return false; } catch(e){ return true; } }
   function show(kind){
-    if (shown || window.__DO_OK) return; shown = true;
+    if (shown || window.__DO_READY || (kind === 'err' && window.__DO_OK)) return; shown = true;
+    D.send('stuck', { why: kind });
     var a = document.getElementById('app'); if (!a) return;
     var msg = kind === 'old' ? 'Bu tarayıcı Ders Özetim için çok eski. Telefonun güncellemelerini yap ya da Chrome\'u güncelle ve tekrar dene.'
       : kind === 'err' ? 'Uygulama açılırken bir sorun çıktı. Aşağıdaki düğme kayıtlı dosyaları temizleyip yeniden indirir; notların ve programın silinmez.'
@@ -48,13 +68,27 @@
     try { if (window.caches) jobs.push(caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); })); } catch(e){}
     Promise.all(jobs).catch(function(){}).then(function(){ location.reload(); });
   };
+  var later = 0;
+  window.addEventListener('unhandledrejection', function(e){
+    var r = e.reason, t = String(r && (r.message || r) || '').slice(0, 200);
+    if (!t || /abort|network|fetch|load failed|cancel/i.test(t)) return;
+    if (window.__DO_READY){ if (later++ < 3) D.send('error', { rej: t }); return; }
+    errs.push('promise: ' + t);
+  });
   window.addEventListener('error', function(e){
-    if (window.__DO_OK) return;
+    if (window.__DO_OK){ if (e.message && later++ < 3) D.send('error', { msg: String(e.message).slice(0, 200), at: String(e.filename || '').split('/').pop() + ':' + e.lineno }); return; }
     errs.push((e.message || 'dosya yüklenemedi') + (e.filename ? ' (' + String(e.filename).split('/').pop() + ':' + e.lineno + ')' : e.target && e.target.src ? ' (' + String(e.target.src).split('/').pop() + ')' : ''));
     setTimeout(function(){ show('err'); }, 2500);
   }, true);
   if (old()) { document.addEventListener('DOMContentLoaded', function(){ show('old'); }); return; }
   setTimeout(function(){ show('slow'); }, 12000);
+  // yavaş açılış: 5 saniyeyi geçen açılışı kaydet; ayrıca her cihazdan sürüm başına bir örnek
+  window.addEventListener('load', function(){ setTimeout(function(){
+    var r = D.m.ready, v = ''; try { v = localStorage.getItem('dersozetim.diag') || ''; } catch(e){}
+    var ver = typeof APP !== 'undefined' ? APP.version : '';
+    if (r && r > 5000) D.send('slow');
+    else if (r && v !== ver){ D.send('boot'); try { localStorage.setItem('dersozetim.diag', ver); } catch(e){} }
+  }, 15000); });
 })();
 </script>
 </head>

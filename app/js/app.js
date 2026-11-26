@@ -747,6 +747,7 @@ function render(){
   const app = $('#app');
   document.body.classList.toggle('in-room', route.page === 'oda');
   if (Cloud.enabled && Cloud.booting){ app.innerHTML = `<div class="boot">${mascotSVG('ok', 72)}<p class="hint">Yükleniyor…</p></div>`; renderNav(false); return; }
+  if (!window.__DO_READY){ window.__DO_READY = true; window.__diag && __diag.mark('ready'); }
   if (Cloud.enabled && !Cloud.uid){ app.innerHTML = loginView(); renderNav(false); bindLogin(); return; }
   if (!DB.d.onboarded){ app.innerHTML = welcomeView(); renderNav(false); bindWelcome(); syncRadios(app); return; }
   if (route.page === 'oda' && Room.id === route.arg && Room.room && $('#room')){ Room.paintGrid(); Room.paintCtl(); return; }
@@ -1252,6 +1253,7 @@ async function boot(){
     catch(e){ window.DO_LIBRARY = { summaries: {}, topics: {} }; }
   }
   LIB = window.DO_LIBRARY;
+  window.__diag && __diag.mark('lib');
   DB.load();
   if (typeof SP !== 'undefined') await SP.handleRedirect();
   applyTheme();
@@ -1259,6 +1261,7 @@ async function boot(){
   if (T().running && T().endAt <= Date.now()) pmTick();
   render();
   window.__DO_OK = true; // açılış bekçisi (index.html) artık devreye girmez
+  window.__diag && __diag.mark('render1');
   if (Cloud.enabled){
     await Cloud.start();
     if (/access_token=/.test(location.hash)) history.replaceState(null, '', location.pathname + '#/bugun');

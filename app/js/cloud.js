@@ -22,7 +22,10 @@ const Cloud = {
     const C = window.DO_CONFIG || {};
     if (ENV !== 'web' || !window.supabase || !C.supabaseUrl) return;
     this.sb = window.supabase.createClient(C.supabaseUrl, C.supabaseKey, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit', storageKey: 'dersozetim.auth' }
+      // iPhone/iPad'de arka plana atılan uygulamada tarayıcı kilidi (navigator.locks) takılı kalıp her isteği
+      // saniyelerce bekletebiliyor; tek sekmelik bu uygulama için bellek içi kilit yeterli
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit', storageKey: 'dersozetim.auth',
+        lock: window.supabase.processLock || undefined }
     });
   },
 
@@ -40,7 +43,14 @@ const Cloud = {
     const fast = !!(su && su.id && DB.d.owner === su.id && DB.d.onboarded);
     if (fast){ this.user = su; this.loadCache(); this.booting = false; render(); }
     let session = null;
-    try { const r = await this.sb.auth.getSession(); session = r.data.session; } catch(e){ if (fast) session = { user: su }; }
+    // oturum en fazla 8 saniye beklenir; gelmezse bu cihazdaki oturumla devam edilir
+    const late = new Promise(ok => setTimeout(() => ok('late'), 8000));
+    try {
+      const r = await Promise.race([this.sb.auth.getSession(), late]);
+      if (r === 'late'){ session = su ? { user: su } : null; if (window.__diag) __diag.send('late', { step: 'session' }); }
+      else session = r.data.session;
+    } catch(e){ if (fast) session = { user: su }; }
+    if (window.__diag) __diag.mark('sess');
     this.user = session ? session.user : null;
     if (fast && !this.user){ this.school = []; render(); }
     this.sb.auth.onAuthStateChange((ev, s) => {
@@ -50,7 +60,12 @@ const Cloud = {
       if (ev === 'PASSWORD_RECOVERY'){ this.recovery = true; setTimeout(() => { if (DB.d.onboarded) pwSheet(); }, 400); }
       if (this.uid && this.uid !== was && !this.inLogin) setTimeout(() => this.afterLogin().then(() => { if (location.hash.includes('access_token')) history.replaceState(null, '', location.pathname + '#/bugun'); parseRoute(); render(); }), 0);
     });
-    if (this.user) await this.afterLogin();
+    if (this.user){
+      // eşitleme 10 saniyeyi geçerse açılış beklemez; eşitleme arka planda biter
+      const t = setTimeout(() => { if (this.booting){ this.booting = false; render(); if (window.__diag) __diag.send('late', { step: 'sync' }); } }, 10000);
+      await this.afterLogin(); clearTimeout(t);
+    }
+    if (window.__diag) __diag.mark('cloud');
     this.booting = false;
     window.addEventListener('online', () => { if (this.pending) this.schedulePush(10); });
   },
