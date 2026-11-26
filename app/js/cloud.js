@@ -26,11 +26,23 @@ const Cloud = {
     });
   },
 
+  /* son bilinen dershane ve yönetici bilgisi: açılışta sunucuyu beklemeden gösterilir */
+  cacheKey(){ return 'dersozetim.cache.' + this.uid; },
+  saveCache(){ try { localStorage.setItem(this.cacheKey(), JSON.stringify({ school: this.school, isAdmin: this.isAdmin, profile: this.profile })); } catch(e){} },
+  loadCache(){ try { const c = JSON.parse(localStorage.getItem(this.cacheKey()) || 'null'); if (c){ this.school = c.school || []; this.isAdmin = !!c.isAdmin; this.profile = c.profile || null; } } catch(e){} },
+
   async start(){
     if (!this.sb) { this.booting = false; return; }
+    // Hızlı açılış: bu cihazda zaten giriş yapılmışsa uygulama telefondaki verilerle hemen açılır,
+    // sunucuyla eşitleme arka planda sürer. Oturum geçersizse giriş ekranına dönülür.
+    let stored = null; try { stored = JSON.parse(localStorage.getItem('dersozetim.auth') || 'null'); } catch(e){}
+    const su = stored && (stored.user || (stored.currentSession && stored.currentSession.user));
+    const fast = !!(su && su.id && DB.d.owner === su.id && DB.d.onboarded);
+    if (fast){ this.user = su; this.loadCache(); this.booting = false; render(); }
     let session = null;
-    try { const r = await this.sb.auth.getSession(); session = r.data.session; } catch(e){}
+    try { const r = await this.sb.auth.getSession(); session = r.data.session; } catch(e){ if (fast) session = { user: su }; }
     this.user = session ? session.user : null;
+    if (fast && !this.user){ this.school = []; render(); }
     this.sb.auth.onAuthStateChange((ev, s) => {
       const was = this.uid;
       this.user = s ? s.user : null;
@@ -126,12 +138,20 @@ const Cloud = {
     if (!document.querySelector('.sheet-wrap') && route.page !== 'oda' && route.page !== 'not') render();
   },
   async afterLogin(){
-    try { await this.pullState(); } catch(e){ console.warn('state', e); }
+    // istekler aynı anda gider; profil ve dershane bilgisi, kişisel veri indikten sonra uygulanır
+    const soft = (p, n) => p.catch(e => { console.warn(n, e); return undefined; });
+    const [, prof, admin, school] = await Promise.all([
+      soft(this.pullState(), 'state'),
+      soft(this.fetchProfile(), 'profile'),
+      this.rpc('is_app_admin').then(v => !!v, () => undefined),
+      soft(this.fetchSchool(), 'school')
+    ]);
+    if (prof !== undefined) this.applyProfile(prof);
+    if (admin !== undefined) this.isAdmin = admin;
+    if (school !== undefined) this.applySchool(school);
     this.listenState();
-    try { await this.loadProfile(); } catch(e){}
-    try { this.isAdmin = !!(await this.rpc('is_app_admin')); } catch(e){ this.isAdmin = false; }
-    try { await this.loadSchool(); } catch(e){}
     try { await this.pullPrograms(); } catch(e){ console.warn('programs', e); }
+    this.saveCache();
     if (typeof ntLoad === 'function') ntLoad(true);
   },
 
@@ -185,8 +205,9 @@ const Cloud = {
 
   /* ---------- profil (sınıf arkadaşları ve hocalar adını görür) ---------- */
   profileRow(){ const p = DB.d.profile, g = p.goal || {}, t = p.kind === 'teacher'; return { name: (p.name || '').slice(0, 40), kind: t ? 'teacher' : 'student', branch: t ? String(p.branch || '').slice(0, 30) : '', grade: !t && GRADES.some(r => r[0] === p.grade) ? p.grade : '', track: String(p.track || 'SAY').toLowerCase(), goal: [g.school, g.dept].filter(Boolean).join(', ').slice(0, 80), palette: p.palette || 'lavanta' }; },
-  async loadProfile(){
-    const { data } = await this.sb.from('profiles').select('*').eq('id', this.uid).maybeSingle();
+  async fetchProfile(){ const { data, error } = await this.sb.from('profiles').select('*').eq('id', this.uid).maybeSingle(); if (error) throw error; return data || null; },
+  async loadProfile(){ this.applyProfile(await this.fetchProfile()); },
+  applyProfile(data){
     this.profile = data || null;
     if (data){
       this.lastProfile = JSON.stringify({ name: data.name, kind: data.kind || 'student', branch: data.branch || '', grade: data.grade || '', track: data.track, goal: data.goal, palette: data.palette });
@@ -207,11 +228,15 @@ const Cloud = {
   googleName(){ const m = this.user && this.user.user_metadata || {}; return (m.full_name || m.name || '').split(' ')[0] || ''; },
 
   /* ---------- dershane ---------- */
-  async loadSchool(){
+  async fetchSchool(){
     const { data, error } = await this.sb.from('memberships')
       .select('institution_id, role, class_id, joined_at, inst:institutions(id, name), cls:classes(id, name)')
       .eq('user_id', this.uid).order('joined_at');
     if (error) throw error;
+    return data || [];
+  },
+  async loadSchool(){ return this.applySchool(await this.fetchSchool()); },
+  applySchool(data){
     this.school = data || [];
     if (this.anyStaff() && DB.d.profile.kind !== 'teacher'){ DB.d.profile.kind = 'teacher'; DB.d.profile.grade = ''; DB.save(); }
     return this.school;

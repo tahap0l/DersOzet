@@ -27,6 +27,7 @@ async function scLoad(inst, force){
       progress = r.data || [];
     }
     SC.data[inst] = { classes: cls.data, members: mem.data, codes: codes.data, programs: progs.data, progress, at: Date.now() };
+    try { localStorage.setItem('dersozetim.sc.' + inst, JSON.stringify(SC.data[inst])); } catch(e){}
   } catch(e){ SC.err[inst] = 'Bilgiler alınamadı. İnternet bağlantını kontrol et.'; }
   SC.busy[inst] = false;
   if ((route.page === 'dershane' || route.page === 'bugun') && !sheetEl) render();
@@ -140,7 +141,8 @@ function teacherToday(){
   const p = DB.d.profile, h = new Date().getHours(), di = todayIdx();
   const hi = h < 5 ? 'İyi geceler' : h < 12 ? 'Günaydın' : h < 18 ? 'İyi günler' : 'İyi akşamlar';
   const staff = Cloud.school.filter(m => m.role !== 'student');
-  staff.forEach(m => { if (!SC.data[m.institution_id]) scLoad(m.institution_id); });
+  // son bilinen hâli hemen göster, tazesi arka planda gelsin
+  staff.forEach(m => { const i = m.institution_id; if (!SC.data[i]){ try { const c = JSON.parse(localStorage.getItem('dersozetim.sc.' + i) || 'null'); if (c) SC.data[i] = c; } catch(e){} scLoad(i, true); } });
   const instCard = m => {
     const inst = m.institution_id, D = SC.data[inst];
     if (!D) return `<section class="block t-inst"><div class="block-head"><h2>${esc(m.inst ? m.inst.name : 'Dershane')}</h2><span class="tag">${ROLE_NAME[m.role]}</span></div><div class="progress"><span class="spinner" aria-hidden="true"></span><span>Yükleniyor…</span></div></section>`;

@@ -109,12 +109,20 @@ function openSheet(title, body, opts){
   document.body.appendChild(wrap);
   document.body.classList.add('locked');
   sheetEl = wrap;
+  syncRadios(wrap);
   requestAnimationFrame(() => wrap.classList.add('open'));
   const box = wrap.querySelector('.sheet');
   const f = box.querySelector('[autofocus]');
   (f || box).focus({ preventScroll: true });
   return box;
 }
+/* :has() desteklemeyen eski tarayıcılarda seçili seçeneği .on sınıfıyla göster */
+const NO_HAS = !(window.CSS && CSS.supports && CSS.supports('selector(:has(a))'));
+function syncRadios(root){
+  if (!NO_HAS) return;
+  (root || document).querySelectorAll('label.fchip.radio, label.kind').forEach(l => { const i = l.querySelector('input'); if (i) l.classList.toggle('on', i.checked); });
+}
+document.addEventListener('change', e => { if (NO_HAS && e.target && e.target.type === 'radio') syncRadios(); });
 function closeSheet(){
   if (!sheetEl) return;
   sheetEl.remove(); sheetEl = null;
@@ -740,7 +748,7 @@ function render(){
   document.body.classList.toggle('in-room', route.page === 'oda');
   if (Cloud.enabled && Cloud.booting){ app.innerHTML = `<div class="boot">${mascotSVG('ok', 72)}<p class="hint">Yükleniyor…</p></div>`; renderNav(false); return; }
   if (Cloud.enabled && !Cloud.uid){ app.innerHTML = loginView(); renderNav(false); bindLogin(); return; }
-  if (!DB.d.onboarded){ app.innerHTML = welcomeView(); renderNav(false); bindWelcome(); return; }
+  if (!DB.d.onboarded){ app.innerHTML = welcomeView(); renderNav(false); bindWelcome(); syncRadios(app); return; }
   if (route.page === 'oda' && Room.id === route.arg && Room.room && $('#room')){ Room.paintGrid(); Room.paintCtl(); return; }
   Object.assign(VIEWS, { bugun: todayView, program: programView, kitaplik: libraryView, konu: topicView, odak: focusView, profil: profileView, asistan: assistantView });
   const v = VIEWS[route.page] || todayView;
@@ -748,6 +756,7 @@ function render(){
   renderNav(route.page !== 'oda');
   if (v.after) v.after();
   if (typeof roomMiniPaint === 'function') roomMiniPaint();
+  syncRadios(app);
   profileNudge();
   checkBadges();
   pmPaint(); swPaint();
@@ -1259,11 +1268,16 @@ async function boot(){
   if (typeof SP !== 'undefined' && SP.on){ SP.refresh(); SP.sdk(); SP.startPoll(); }
   if (ENV === 'web' && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !/[?&]nosw/.test(location.search)){
     // Yeni sürüm yüklenince sayfayı bir kez yenile ki herkes hep son sürümü kullansın.
-    const hadSW = !!navigator.serviceWorker.controller; let reloaded = false;
+    // Yeni sürüm hazır olunca: açılışın ilk saniyelerindeyse ya da kullanıcı uygulamaya geri dönünce
+    // sayfa bir kez yenilenir. Kullanırken (yazarken, odadayken) sayfa yenilenip kesilmez.
+    const hadSW = !!navigator.serviceWorker.controller; let reloaded = false, fresh = false, touched = false;
+    ['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, () => { touched = true; }, { once: true, capture: true }));
+    const reloadNow = () => { if (reloaded || Room.id || sheetEl) return; reloaded = true; Promise.resolve(Cloud.uid ? Cloud.flushPush() : null).finally(() => location.reload()); };
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!hadSW || reloaded || Room.id) return; reloaded = true;
-      Promise.resolve(Cloud.uid ? Cloud.flushPush() : null).finally(() => location.reload());
+      if (!hadSW) return; fresh = true;
+      if (!touched && performance.now() < 6000) reloadNow();
     });
+    document.addEventListener('visibilitychange', () => { if (fresh && document.hidden) setTimeout(() => { fresh && document.hidden && (reloadNow()); }, 0); });
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => {
       document.addEventListener('visibilitychange', () => { if (!document.hidden) r.update().catch(() => {}); });
     }).catch(() => {});
