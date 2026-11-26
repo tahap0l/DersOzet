@@ -902,7 +902,7 @@ details.adv .opts{margin-top:8px}
 /* ---------- YouTube videoları ---------- */
 .yt-ic{width:16px;height:16px;color:#FF0033;flex:none}
 .tlink.yt{display:inline-flex;align-items:center;gap:5px;color:var(--ink);font-weight:800}
-button.tlink.yt{background:none;border:0;font:inherit;font-size:inherit;cursor:pointer;padding:0}
+button.tlink{background:none;border:0;font:inherit;font-size:13.5px;font-weight:800;cursor:pointer;padding:0}
 .tlink.yt.soft{color:var(--ink-2)}
 .tlink.yt[disabled]{opacity:.7;cursor:progress}
 .d-txt{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
