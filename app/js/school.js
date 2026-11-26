@@ -174,6 +174,7 @@ function teacherToday(){
       <li><a href="#/lab"><span class="tt-ic">${I.flask}</span><span><strong>Laboratuvar</strong><span>${nSims} deney ve animasyon; tahtada göster</span></span></a></li>
       <li><a href="#/kitaplik"><span class="tt-ic">${I.book}</span><span><strong>Konu özetleri</strong><span>${allTopics().length} konu, PDF olarak da iner</span></span></a></li>
       <li><a href="#/asistan/sor"><span class="tt-ic">${I.spark}</span><span><strong>Yapay zekâya sor</strong><span>Soru çözümü, örnek soru, anlatım fikri</span></span></a></li>
+      <li><a href="#/odak"><span class="tt-ic">${I.timer}</span><span><strong>Odak sayacı ve kronometre</strong><span>Derste süre tut, sınav provası yap</span></span></a></li>
       <li><a href="#/odalar"><span class="tt-ic">${I.rooms}</span><span><strong>Ders odaları</strong><span>Sesli, görüntülü ya da yazışarak</span></span></a></li>
     </ul>
   </section>

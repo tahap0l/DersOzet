@@ -69,8 +69,8 @@ const TABS = [
   { id: 'profil', label: 'Profil', icon: I.user }
 ];
 /* hocanın menüsü: dershane ve sınıf işleri önde, kendi çalışma araçları yan menüde */
-const TEACHER_ORDER = ['bugun', 'dershane', 'odalar', 'lab', 'kitaplik', 'asistan', 'program', 'odak', 'defter', 'medya', 'admin', 'profil'];
-const TEACHER_BAR = ['bugun', 'dershane', 'odalar', 'lab', 'profil'];
+const TEACHER_ORDER = ['bugun', 'dershane', 'odalar', 'odak', 'lab', 'kitaplik', 'asistan', 'program', 'defter', 'medya', 'admin', 'profil'];
+const TEACHER_BAR = ['bugun', 'dershane', 'odalar', 'odak', 'lab', 'profil'];
 function tabsFor(){
   if (!isTeacher()) return TABS;
   return TEACHER_ORDER.map(id => TABS.find(t => t.id === id)).filter(Boolean).map(t => Object.assign({}, t, { rail: !TEACHER_BAR.includes(t.id) }, t.id === 'lab' ? { label: matchMedia('(min-width: 900px)').matches ? 'Laboratuvar' : 'Araçlar' } : {}));
