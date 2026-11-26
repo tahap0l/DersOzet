@@ -22,6 +22,41 @@
 <link rel="preload" href="fonts/nunito-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="fonts/fonts.css">
 <link rel="stylesheet" href="css/app.css">
+<link rel="preload" href="data/library.json" as="fetch" crossorigin>
+<script>
+/* Açılış bekçisi: uygulama 12 saniyede açılmazsa ya da bir dosya çalışmazsa "Yükleniyor…"da takılı
+   kalmak yerine sebebini ve onarma düğmesini gösterir. Notların silinmez. */
+(function(){
+  var errs = [], shown = false;
+  function old(){ try { new Function('var a={};return a?.b??1'); return false; } catch(e){ return true; } }
+  function show(kind){
+    if (shown || window.__DO_OK) return; shown = true;
+    var a = document.getElementById('app'); if (!a) return;
+    var msg = kind === 'old' ? 'Bu tarayıcı Ders Özetim için çok eski. Telefonun güncellemelerini yap ya da Chrome\'u güncelle ve tekrar dene.'
+      : kind === 'err' ? 'Uygulama açılırken bir sorun çıktı. Aşağıdaki düğme kayıtlı dosyaları temizleyip yeniden indirir; notların ve programın silinmez.'
+      : 'Açılış uzun sürüyor. İnternetin yavaş olabilir. Biraz daha bekleyebilir ya da onarıp yeniden deneyebilirsin; notların ve programın silinmez.';
+    a.innerHTML = '<div style="max-width:420px;margin:12vh auto;padding:0 20px;font:16px/1.5 system-ui,sans-serif;color:#2a2340">'
+      + '<h1 style="font-size:22px;margin:0 0 8px">Ders Özetim açılamadı</h1><p style="margin:0 0 18px">' + msg + '</p>'
+      + (kind === 'old' ? '' : '<button onclick="__doFix()" style="font:600 16px system-ui;padding:12px 18px;border:0;border-radius:12px;background:#6c4cf1;color:#fff">Onar ve yeniden aç</button> '
+      + '<button onclick="location.reload()" style="font:600 16px system-ui;padding:12px 18px;border:1px solid #cfc6ee;border-radius:12px;background:#fff;color:#2a2340">Tekrar dene</button>')
+      + (errs.length ? '<p style="margin-top:22px;font-size:12px;color:#6b6585;word-break:break-word">Hata: ' + errs.slice(0, 2).join(' | ').replace(/[<>&]/g, '') + '</p>' : '')
+      + '</div>';
+  }
+  window.__doFix = function(){
+    var jobs = [];
+    try { if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){ return Promise.all(rs.map(function(r){ return r.unregister(); })); })); } catch(e){}
+    try { if (window.caches) jobs.push(caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); })); } catch(e){}
+    Promise.all(jobs).catch(function(){}).then(function(){ location.reload(); });
+  };
+  window.addEventListener('error', function(e){
+    if (window.__DO_OK) return;
+    errs.push((e.message || 'dosya yüklenemedi') + (e.filename ? ' (' + String(e.filename).split('/').pop() + ':' + e.lineno + ')' : e.target && e.target.src ? ' (' + String(e.target.src).split('/').pop() + ')' : ''));
+    setTimeout(function(){ show('err'); }, 2500);
+  }, true);
+  if (old()) { document.addEventListener('DOMContentLoaded', function(){ show('old'); }); return; }
+  setTimeout(function(){ show('slow'); }, 12000);
+})();
+</script>
 </head>
 <body>
 <main id="app" aria-live="polite"><p class="hint">Yükleniyor…</p></main>

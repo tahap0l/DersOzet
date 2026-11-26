@@ -1181,6 +1181,7 @@ async function boot(){
   parseRoute();
   if (T().running && T().endAt <= Date.now()) pmTick();
   render();
+  window.__DO_OK = true; // açılış bekçisi (index.html) artık devreye girmez
   if (Cloud.enabled){
     await Cloud.start();
     if (/access_token=/.test(location.hash)) history.replaceState(null, '', location.pathname + '#/bugun');
