@@ -71,7 +71,7 @@ function instView(m, D){
   return `<header class="page-head slim"><a class="back" href="#/dershane">${I.back}Dershanem</a><button class="icon-btn" data-act="sc-reload" data-i="${inst}" aria-label="Yenile">${I.refresh}</button></header>
   <h1 class="page-title">${esc(m.inst.name)}</h1>
   <p class="sub">${ROLE_NAME[m.role]}${m.cls ? ', ' + esc(m.cls.name) : ''} · ${D.members.filter(x => x.role === 'student').length} öğrenci, ${teachers.length} hoca</p>
-  ${staff && tcode ? `<section class="block">${codeBox(tcode.code, 'Hoca davet kodu: diğer hocalara ver', true)}</section>` : ''}
+  ${staff && tcode ? `<section class="block">${codeBox(tcode.code, 'Hoca kodu: yalnızca hocalara ver', true)}<p class="hint">Bu kodla katılan hoca olur. Öğrencilere sınıfın kodunu ver; her sınıfın kodu aşağıda, sınıfın yanında yazıyor.</p></section>` : ''}
   <section class="block">
     <div class="block-head"><h2>Sınıflar</h2>${staff ? '<button class="link" data-act="sc-class-new">Sınıf ekle</button>' : ''}</div>
     ${D.classes.length ? `<ul class="cards">${D.classes.map(c => { const code = D.codes.find(x => x.class_id === c.id); const n = byClass(c.id).length;
@@ -86,7 +86,8 @@ function instView(m, D){
   </section>
   <section class="block">
     <h2 class="f-h">Hocalar</h2>
-    <ul class="people">${teachers.map(x => `<li>${avatarFor(x.p && x.p.name)}<span><strong>${esc(x.p ? x.p.name : '')}</strong><span class="hint">${ROLE_NAME[x.role]}${x.p && x.p.branch ? ' · ' + esc(x.p.branch) : ''}</span></span></li>`).join('')}</ul>
+    <ul class="people">${teachers.map(x => `<li>${avatarFor(x.p && x.p.name)}<span class="pp-b"><strong>${esc(x.p ? x.p.name : '')}</strong><span class="hint">${ROLE_NAME[x.role]}${x.p && x.p.branch ? ' · ' + esc(x.p.branch) : ''}</span></span>${m.role === 'owner' && x.role !== 'owner' ? `<button class="btn sm" data-act="sc-mem" data-u="${x.user_id}" aria-label="${esc(x.p ? x.p.name : '')} için rol">Rolü</button>` : ''}</li>`).join('')}</ul>
+    ${m.role === 'owner' ? '<p class="hint">Yanlışlıkla hoca koduyla katılan bir öğrenciyi "Rolü"ne dokunup öğrenci yapabilir ve sınıfını seçebilirsin.</p>' : ''}
   </section>
   <div class="row"><button class="link danger" data-act="sc-leave" data-i="${inst}">${m.role === 'owner' ? 'Dershaneyi sil' : 'Dershaneden ayrıl'}</button></div>`;
 }
@@ -179,6 +180,36 @@ function teacherToday(){
     </ul>
   </section>
   ${Cloud.enabled ? installBanner() : ''}`;
+}
+
+/* ---------- kurucu: rol değiştirme ---------- */
+async function setRole(inst, uid, role, cls, name){
+  try { await Cloud.rpc('set_member_role', { p_inst: inst, p_user: uid, p_role: role, p_class: cls }); }
+  catch(e){ toast(e.message || 'Değiştirilemedi'); return false; }
+  closeSheet(); toast((name || 'Üye') + (role === 'teacher' ? ' artık hoca' : ' artık öğrenci')); await scLoad(inst, true); return true;
+}
+function roleSheet(uid){
+  const [inst] = route.arg.split('/'), D = SC.data[inst], x = D && D.members.find(y => y.user_id === uid); if (!x) return;
+  const name = x.p ? x.p.name : 'Üye';
+  const box = openSheet(name, `<p class="hint">Hoca dershanenin sınıflarını ve öğrencilerini görür, program gönderir. Öğrenci kendi sınıfının programını alır.</p>
+    <div class="kind-pick" role="radiogroup" aria-label="Rol">
+      <label class="kind"><input type="radio" name="rs-r" value="teacher"${x.role === 'teacher' ? ' checked' : ''}>${KIND_ICON.teacher}<span><strong>Hoca</strong><span>Sınıfları yönetir</span></span></label>
+      <label class="kind"><input type="radio" name="rs-r" value="student"${x.role === 'student' ? ' checked' : ''}>${KIND_ICON.student}<span><strong>Öğrenci</strong><span>Sınıfının programını alır</span></span></label></div>
+    <div data-for="student">${D.classes.length ? `<label class="f-h" for="rs-c">Sınıfı</label><select id="rs-c">${D.classes.map(c => `<option value="${c.id}"${c.id === x.class_id ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>` : '<p class="err">Önce bir sınıf ekle; öğrenci bir sınıfta olmalı.</p>'}</div>
+    <div class="row"><button class="btn primary" id="rs-go">Kaydet</button><button class="btn danger" id="rs-x">Dershaneden çıkar</button></div>`);
+  bindKind(box, 'rs-r');
+  $('#rs-go', box).addEventListener('click', () => {
+    const r = ($('input[name="rs-r"]:checked', box) || {}).value, c = $('#rs-c', box);
+    if (r === 'student' && !c) return;
+    if (r === x.role && (r === 'teacher' || (c && c.value === x.class_id))){ closeSheet(); return; }
+    setRole(inst, uid, r, r === 'student' ? c.value : null, name);
+  });
+  const del = $('#rs-x', box);
+  del.addEventListener('click', async () => {
+    if (del.dataset.armed !== '1'){ del.dataset.armed = '1'; del.textContent = 'Tekrar bas'; return; }
+    const { error } = await Cloud.sb.from('memberships').delete().eq('institution_id', inst).eq('user_id', uid);
+    if (error){ toast('Çıkarılamadı: ' + error.message); return; } closeSheet(); toast(name + ' dershaneden çıkarıldı'); scLoad(inst, true);
+  });
 }
 
 function avatarFor(name){ return `<span class="avatar sm" aria-hidden="true">${esc(String(name || '?').charAt(0).toLocaleUpperCase('tr'))}</span>`; }
@@ -313,11 +344,14 @@ Object.assign(ACT, {
     if (error){ toast(error.message); return; }
     toast('Program silindi'); scLoad(route.arg.split('/')[0], true);
   },
+  /* kurucu: üyeyi hoca ya da öğrenci yap */
+  'sc-mem': el => roleSheet(el.dataset.u),
   'sc-stu': el => {
     const [inst, cid] = route.arg.split('/'), D = SC.data[inst], s = D.members.find(x => x.user_id === el.dataset.u); if (!s) return;
     const box = openSheet(s.p ? s.p.name : 'Öğrenci', `<label class="f-h" for="ss-c">Sınıfı</label>
       <select id="ss-c">${D.classes.map(c => `<option value="${c.id}"${c.id === cid ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
-      <div class="row"><button class="btn primary" id="ss-go">Kaydet</button><button class="btn danger" id="ss-x">Dershaneden çıkar</button></div>`);
+      <div class="row"><button class="btn primary" id="ss-go">Kaydet</button>${Cloud.member(inst) && Cloud.member(inst).role === 'owner' ? '<button class="btn" id="ss-t">Hoca yap</button>' : ''}<button class="btn danger" id="ss-x">Dershaneden çıkar</button></div>`);
+    const st = $('#ss-t', box); if (st) st.addEventListener('click', () => setRole(inst, s.user_id, 'teacher', null, s.p ? s.p.name : ''));
     $('#ss-go', box).addEventListener('click', async () => {
       const { error } = await Cloud.sb.from('memberships').update({ class_id: $('#ss-c', box).value }).eq('institution_id', inst).eq('user_id', s.user_id);
       if (error){ toast(error.message); return; } closeSheet(); toast('Sınıfı değişti'); scLoad(inst, true);

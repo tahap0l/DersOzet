@@ -254,10 +254,14 @@ const Cloud = {
   applySchool(data){
     this.school = data || [];
     if (this.anyStaff() && DB.d.profile.kind !== 'teacher'){ DB.d.profile.kind = 'teacher'; DB.d.profile.grade = ''; DB.save(); }
+    // kurucu hocalığı kaldırıp öğrenci yaptıysa (sunucu profili öğrenci) burada da öğrenci ol; sınıfı profil penceresi sorar
+    else if (!this.anyStaff() && DB.d.profile.kind === 'teacher' && this.profile && this.profile.kind === 'student' && this.school.some(m => m.role === 'student')){
+      DB.d.profile.kind = 'student'; DB.save(); if (typeof ui !== 'undefined') ui.nudged = false;
+    }
     return this.school;
   },
   async rpc(fn, args){ const { data, error } = await this.sb.rpc(fn, args || {}); if (error) throw error; return data; },
-  async joinCode(code){ const r = await this.rpc('join_with_code', { p_code: code }); await this.loadSchool(); await this.pullPrograms(); return r; },
+  async joinCode(code){ const r = await this.rpc('join_with_code', { p_code: code }); try { await this.loadProfile(); } catch(e){} await this.loadSchool(); await this.pullPrograms(); this.saveCache(); return r; },
 
   /* ---------- hocanın yüklediği programlar (öğrenci tarafı) ---------- */
   async pullPrograms(){

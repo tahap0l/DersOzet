@@ -657,13 +657,14 @@ function bindKind(root, name){
 }
 function welcomeView(){
   const gn = Cloud.uid ? Cloud.googleName() || (Cloud.profile && Cloud.profile.name) || '' : '';
-  const code = Cloud.uid && !Cloud.school.length;
+  const code = Cloud.uid && !Cloud.school.length, staffNow = Cloud.anyStaff();
   return `<main class="welcome">
     <div class="w-mascot">${mascotSVG('happy', 80)}</div>
     <h1>Hoş geldin!</h1>
     <p class="w-lede">Ben ${MASCOT.name}. Önce seni tanıyayım.</p>
     <form id="w-form" class="w-form">
-      ${kindPick('w-kind', '')}
+      ${kindPick('w-kind', staffNow ? 'teacher' : '')}
+      ${staffNow ? `<p class="hint">Dershanede hoca olarak kayıtlısın. Öğrenciysen "Öğrenciyim"i seçip hocanın verdiği sınıf kodunu yaz.</p>` : ''}
       <div data-for="student teacher" class="w-rest">
       <label class="f-h" for="w-name">Adın ve soyadın</label>
       <input id="w-name" class="input" maxlength="40" placeholder="Örn. Ayşe Yılmaz" autocomplete="name" value="${esc(titleCase(gn))}">
@@ -672,7 +673,7 @@ function welcomeView(){
         <p class="f-h">Alanın</p>${trackChips('w-track', 'SAY')}
         <label class="f-h" for="w-goal">Hedef bölümün <span class="f-opt">isteğe bağlı</span></label>
         <input id="w-goal" class="input" maxlength="60" placeholder="Örn. Bilgisayar Mühendisliği" autocomplete="off">
-        ${code ? `<label class="f-h" for="w-code">Dershane kodun <span class="f-opt">varsa</span></label>
+        ${code || staffNow ? `<label class="f-h" for="w-code">${staffNow ? 'Sınıf kodun' : 'Dershane kodun <span class="f-opt">varsa</span>'}</label>
         <input id="w-code" class="input code-in" maxlength="10" placeholder="Hocanın verdiği 6 haneli kod" autocomplete="off" autocapitalize="characters">` : ''}
       </div>
       <div data-for="teacher">
@@ -788,12 +789,13 @@ function bindWelcome(){
       try { await Cloud.setPassword(pw); DB.d.profile.pwSet = true; } catch(e2){ err(AUTH_ERR(e2)); return; }
     }
     const ci = $(teacher ? '#w-tcode' : '#w-code'), code = ci ? ci.value.trim() : '';
+    if (!teacher && Cloud.anyStaff() && !code){ err('Dershanede hoca olarak kayıtlısın. Öğrenciysen hocanın verdiği sınıf kodunu yaz ya da kurucudan seni öğrenci yapmasını iste.'); return; }
     if (code){
       try { await Cloud.joinCode(code); }
       catch(e2){ err((e2.message || 'Kod geçerli değil.') + ' Kodu boş bırakıp sonra Dershane sayfasından da katılabilirsin.'); return; }
     }
     const p = DB.d.profile;
-    p.name = name; p.kind = kind;
+    p.name = name; p.kind = Cloud.anyStaff() ? 'teacher' : kind;
     if (teacher){ p.grade = ''; p.branch = titleCase($('#w-branch').value.trim()).slice(0, 30); }
     else {
       p.grade = gr.value; const tr = $('input[name="w-track"]:checked'); p.track = tr ? tr.value : 'SAY';
