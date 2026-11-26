@@ -7,7 +7,7 @@
  */
 'use strict';
 
-const APP = { name: 'Ders Özetim', author: 'Esat Taha Polat', repo: 'https://github.com/tahap0l/DersOzet', version: '3.11.0' };
+const APP = { name: 'Ders Özetim', author: 'Esat Taha Polat', repo: 'https://github.com/tahap0l/DersOzet', version: '3.12.0' };
 const ENV = window.DO_ENV || 'web'; // 'web': Cloudflare / GitHub sürümü, 'artifact': claude.ai yapıtı
 const CAP = { sample: null, downloads: null };
 
@@ -90,12 +90,12 @@ function readXlsx(buf){
   if (sx) Array.from(sx.getElementsByTagName('si')).forEach(si => shared.push(textOf(si)));
   let sheets = Object.keys(files).filter(n => /worksheets\/sheet\d+\.xml$/.test(n))
     .sort((a, b) => parseInt(a.match(/(\d+)\.xml$/)[1], 10) - parseInt(b.match(/(\d+)\.xml$/)[1], 10));
-  const wb = xml('xl/workbook.xml'), rels = xml('xl/_rels/workbook.xml.rels');
+  const wb = xml('xl/workbook.xml'), rels = xml('xl/_rels/workbook.xml.rels'), titles = {};
   if (wb && rels){
     const map = {};
     Array.from(rels.getElementsByTagName('Relationship')).forEach(r => { map[r.getAttribute('Id')] = 'xl/' + String(r.getAttribute('Target') || '').replace(/^\/?xl\//, '').replace(/^\//, ''); });
     const R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-    const order = Array.from(wb.getElementsByTagName('sheet')).map(s => map[s.getAttributeNS(R, 'id') || s.getAttribute('r:id')]).filter(n => n && files[n]);
+    const order = Array.from(wb.getElementsByTagName('sheet')).map(s => { const f = map[s.getAttributeNS(R, 'id') || s.getAttribute('r:id')]; if (f) titles[f] = s.getAttribute('name') || ''; return f; }).filter(n => n && files[n]);
     if (order.length) sheets = order;
   }
   const colIdx = ref => { const m = /^([A-Z]+)/.exec(ref || ''); if (!m) return -1; let n = 0; for (const ch of m[1]) n = n * 26 + (ch.charCodeAt(0) - 64); return n - 1; };
@@ -116,6 +116,7 @@ function readXlsx(buf){
       rows[r] = out;
     });
     for (let k = 0; k < rows.length; k++) if (!rows[k]) rows[k] = [];
+    rows.sheetName = titles[name] || ''; // sayfanın adı (öğrenci adıyla eşleştirmek için)
     return rows;
   });
 }
@@ -174,10 +175,40 @@ function parseProgram(rows){
   tasks.sort((a, b) => a.day - b.day);
   return { tasks, student: student ? sentence(student) : '', label: lm ? lm[1] + '. Hafta' : '', monday: findWeekStart(all) };
 }
+/* Bir sayfada birden çok öğrenci olabilir (her öğrenciye bir satır): "Öğrenci adı" sütunu farklıysa
+   her öğrenci ayrı program olur. Tek öğrenciyse parseProgram ile aynı sonucu verir. */
+function parsePrograms(rows){
+  const one = parseProgram(rows); if (!one) return [];
+  const norm = v => String(v == null ? '' : v).toLocaleLowerCase('tr').replace(/\s+/g, ' ').trim();
+  const dayLc = DAYS.map(d => d.toLocaleLowerCase('tr'));
+  const dayOf = v => dayLc.indexOf(norm(v).replace(/[:.]$/, ''));
+  let hr = -1, cols = {};
+  for (let r = 0; r < rows.length && hr < 0; r++){
+    const m = {}; (rows[r] || []).forEach((v, ci) => { const di = dayOf(v); if (di >= 0 && !(di in m)) m[di] = ci; });
+    if (Object.keys(m).length >= 3){ hr = r; cols = m; }
+  }
+  if (hr < 0) return [one];
+  const nameCol = (rows[hr] || []).findIndex(v => { const n = norm(v); return n.includes('öğrenci') || n.includes('adı'); });
+  if (nameCol < 0) return [one];
+  const groups = [], byName = {}; let cur = null;
+  for (let r = hr + 1; r < rows.length; r++){
+    const row = rows[r] || [], nm = String(row[nameCol] || '').trim();
+    if (nm){ const k = norm(nm); cur = byName[k] || (byName[k] = { name: nm, rows: [] }); if (!groups.includes(cur)) groups.push(cur); }
+    if (cur) cur.rows.push(row);
+  }
+  if (groups.length < 2) return [one];
+  return groups.map(g => { const p = parseProgram(rows.slice(0, hr + 1).concat(g.rows)); if (p){ p.student = sentence(g.name); if (!p.label) p.label = one.label; if (!p.monday) p.monday = one.monday; } return p; }).filter(Boolean);
+}
 function guessTask(text){
   const u = String(text).toLocaleUpperCase('tr');
   const type = /\bDİNLE\b|\bİZLE\b/.test(u) ? 'video' : /SORU|PROBLEM|ÇÖZ|TEST|DENEME/.test(u) ? 'soru' : /TEKRAR/.test(u) ? 'tekrar' : /DERSHANE|OKUL DERS/.test(u) ? 'ders' : 'diger';
-  const rules = [[/PARAGRAF|TÜRKÇE|DİL ?BİLGİSİ/, 'Türkçe'], [/ÜÇGEN|GEOMETRİ|ÇEMBER|DÖRTGEN/, 'Geometri'], [/MATEMATİK|EBOB|EKOK|BÖLÜNEBİLME|PROBLEM/, 'Matematik'], [/BASINÇ|BASINCI|FİZİK/, 'Fizik'], [/KİMYA|PERİYODİK/, 'Kimya'], [/BİYOLOJİ|BİOSEM/, 'Biyoloji'], [/İNGİLİZCE|ENGLISH|YDS|KELİME/, 'İngilizce'], [/TARİH/, 'Tarih'], [/COĞRAFYA/, 'Coğrafya'], [/EDEBİYAT/, 'Edebiyat']];
+  // önce dersin adı, sonra o derse özgü konu adları (türev → Matematik, enzim → Biyoloji)
+  const rules = [[/PARAGRAF|TÜRKÇE|DİL ?BİLGİSİ|ANLAM BİLGİSİ|YAZIM KURAL|NOKTALAMA/, 'Türkçe'], [/GEOMETRİ|ÜÇGEN|ÇEMBER|DÖRTGEN|ÇOKGEN|EŞ ?KENAR|EŞNEKAR|İKİZKENAR|AÇIORTAY|KENARORTAY|\bAÇI(LAR)?\b|PİSAGOR|ÖKLİD|ANALİTİK|KATI CİSİM|PRİZMA|DAİRE/, 'Geometri'],
+    [/MATEMATİK|EBOB|EKOK|BÖLÜNEBİLME|PROBLEM|TÜREV|İNTEGRAL|LİMİT|LOGARİTMA|FONKSİYON|POLİNOM|MUTLAK DEĞER|EŞİTSİZLİK|DENKLEM|OLASILIK|PERMÜTASYON|KOMBİNASYON|DİZİLER|TRİGONOMETRİ|ÜSLÜ|KÖKLÜ|RASYONEL|ORAN ORANTI|KÜMELER/, 'Matematik'],
+    [/FİZİK|BASINÇ|BASINCI|KALDIRMA|KUVVET|HAREKET|ENERJİ|ISI VE SICAKLIK|ELEKTRİK|MANYET|DALGA|OPTİK|MERCEK|\bAYNA|MOMENTUM|TORK|VEKTÖR|\bİTME\b|\bATIŞ|ÇEMBERSEL/, 'Fizik'],
+    [/KİMYA|PERİYODİK|\bATOM|\bMOL\b|ASİT|BAZ|TEPKİME|GAZLAR|ÇÖZELTİ|ORGANİK|KİMYASAL|MADDENİN HALLERİ|KARIŞIM|ELEKTROKİMYA/, 'Kimya'],
+    [/BİYOLOJİ|BİOSEM|HÜCRE|ENZİM|PROTEİN|VİTAMİN|HORMON|GENETİK|KALITIM|SİNDİRİM|FOTOSENTEZ|SOLUNUM|EKOLOJİ|MİTOZ|MAYOZ|DNA|SİNİR SİSTEMİ|DOLAŞIM|BOŞALTIM/, 'Biyoloji'],
+    [/İNGİLİZCE|ENGLISH|YDS|KELİME|GRAMMAR/, 'İngilizce'], [/TARİH|OSMANLI|İNKILAP|KURTULUŞ SAVAŞI/, 'Tarih'], [/COĞRAFYA|İKLİM|NÜFUS|HARİTA BİLGİSİ/, 'Coğrafya'], [/EDEBİYAT|DİVAN|ŞİİR|ROMAN|TANZİMAT|SERVET-İ FÜNUN/, 'Edebiyat'], [/FELSEFE|MANTIK|PSİKOLOJİ|SOSYOLOJİ/, 'Felsefe']];
   const hit = rules.find(r => r[0].test(u));
   return { type, subject: hit ? hit[1] : '' };
 }

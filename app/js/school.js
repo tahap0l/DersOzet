@@ -108,13 +108,14 @@ function classView(m, D, cid){
   ${code ? `<section class="block">${codeBox(code.code, 'Sınıf kodu: öğrencilere ver', true)}<p class="hint">Öğrenci uygulamada Profil > Dershanem > Kodla katıl'a bu kodu yazar.</p></section>` : ''}
   <section class="block">
     <div class="block-head"><h2>Program gönder</h2></div>
-    <div class="row"><button class="btn primary" data-act="sc-up" data-c="${cid}">Excel'den yükle</button><button class="btn" data-act="sc-mine" data-c="${cid}">Kendi programımdan</button></div>
-    <p class="hint">Program sınıftaki herkesin Program sayfasına kendiliğinden düşer. Kendi programından göndermek için önce Program sayfasında haftayı yaz.</p>
+    <div class="row"><button class="btn primary" data-act="sc-up" data-c="${cid}">Excel'den yükle</button><button class="btn" data-act="sc-write" data-c="${cid}">Program yaz</button><button class="btn" data-act="sc-mine" data-c="${cid}">Kendi programımdan</button></div>
+    <p class="hint"><strong>Herkese ayrı program:</strong> her öğrencinin Excel'ini onun adıyla kaydet (örn. "Esat Taha Polat.xlsx") ve hepsini birlikte seç; ya da tek dosyada her öğrenciye bir sayfa aç, sayfaya öğrencinin adını ver. Uygulama hangi programın kime gideceğini adlardan bulur. Tek bir öğrenciye göndermek için öğrencinin yanındaki ⋯'ye dokun.</p>
   </section>
   <section class="block">
     <div class="block-head"><h2>Öğrenciler</h2><span class="hint">Bu hafta</span></div>
     ${students.length ? `<ul class="people">${students.map(s => { const x = stat(s.user_id); const pct = x.t ? Math.round(x.d / x.t * 100) : 0;
-      return `<li>${avatarFor(s.p && s.p.name)}<span class="pp-b"><strong>${esc(s.p ? s.p.name : '')}</strong><span class="hint">${esc([s.p && whoTag(s.p), s.p && s.p.goal].filter(Boolean).join(' · '))}</span>
+      const own = weekProgs.some(p => p.student_id === s.user_id);
+      return `<li>${avatarFor(s.p && s.p.name)}<span class="pp-b"><strong>${esc(s.p ? s.p.name : '')}${own ? ' <span class="tag">Özel program</span>' : ''}</strong><span class="hint">${esc([s.p && whoTag(s.p), s.p && s.p.goal].filter(Boolean).join(' · '))}</span>
         ${x.t ? `<span class="minibar" aria-label="${x.d}/${x.t} görev"><span style="width:${pct}%"></span></span><span class="hint">${x.d}/${x.t} görev</span>` : '<span class="hint">Bu hafta programı yok</span>'}</span>
         <button class="icon-btn ghost" data-act="sc-stu" data-u="${s.user_id}" aria-label="Öğrenci seçenekleri">${I.dots}</button></li>`; }).join('')}</ul>`
       : `<p class="hint">Henüz öğrenci yok. Sınıf kodunu paylaş.</p>`}
@@ -218,16 +219,34 @@ function avatarFor(name){ return `<span class="avatar sm" aria-hidden="true">${e
 function toServerTasks(tasks){
   return tasks.map(t => ({ day: t.day, text: t.text, label: t.label || sentence(t.text), subject: t.subject || '', topic: t.topic || '', type: t.type || '' }));
 }
-function sendProgramSheet(cid, items){
+/* dosya ya da sayfa adından öğrenciyi bul: "Esat Taha Polat.xlsx", "Esat 9. hafta", sayfa adı "Yiğit" */
+const nameKey = x => String(x || '').toLocaleLowerCase('tr').replace(/[çğıöşüâîû]/g, c => ASCII_TR[c] || c).replace(/[^a-z0-9]+/g, ' ').trim();
+function matchStudent(text, students){
+  const words = new Set(nameKey(text).split(' ').filter(w => w.length >= 2));
+  let best = null, bestScore = 0, tie = false;
+  students.forEach(s => {
+    const parts = nameKey(s.p && s.p.name).split(' ').filter(w => w.length >= 2); if (!parts.length) return;
+    const hit = parts.filter(w => words.has(w)).length;
+    if (!hit) return;
+    const score = hit / parts.length + (words.has(parts[0]) ? 0.5 : 0); // ad eşleşmesi önde
+    if (score > bestScore){ best = s; bestScore = score; tie = false; } else if (score === bestScore) tie = true;
+  });
+  return best && !tie ? best.user_id : '';
+}
+function sendProgramSheet(cid, items, preset){
   const [inst] = route.arg.split('/');
   const D = SC.data[inst];
   const students = D.members.filter(x => x.class_id === cid && x.role === 'student');
-  const box = openSheet(items.length > 1 ? items.length + ' program gönder' : 'Program gönder', `
+  const one = items.length === 1;
+  items.forEach(x => { if (x.to == null) x.to = preset || matchStudent(x.match || x.title, students) || (one ? 'class' : ''); });
+  const opts = sel => `${one ? '' : `<option value=""${!sel ? ' selected' : ''}>Kime gönderilsin?</option>`}<option value="class"${sel === 'class' ? ' selected' : ''}>Bütün sınıf (${students.length} öğrenci)</option>${students.map(s => `<option value="${s.user_id}"${sel === s.user_id ? ' selected' : ''}>${esc(s.p ? s.p.name : 'Öğrenci')}</option>`).join('')}`;
+  const matched = items.filter(x => x.to && x.to !== 'class').length;
+  const box = openSheet(one ? 'Program gönder' : items.length + ' program gönder', `
+    ${!one ? `<p class="hint">${matched ? `${matched} programı dosya ya da sayfa adından öğrenciyle eşleştirdim. ` : ''}Her programın kime gideceğini kontrol et. İpucu: dosyayı öğrencinin adıyla kaydedersen (örn. "Esat Taha Polat.xlsx") kendiliğinden eşleşir.</p>` : ''}
     <div id="sp-list">${items.map((x, i) => `<div class="im" data-i="${i}">
-      <p class="im-n">${esc(x.title)}</p><p class="hint">${x.tasks.length} görev</p>
+      <p class="im-n">${esc(x.title)}</p><p class="hint">${x.tasks.length} görev${x.src ? ' · ' + esc(x.src) : ''}</p>
+      <label class="f-h sm" for="sp-to-${i}">Kime?</label><select id="sp-to-${i}" class="sp-to" data-i="${i}">${opts(x.to)}</select>
       <div class="weeknav small"><button class="icon-btn" data-step="-1" aria-label="Önceki hafta">${I.back}</button><p class="wk-r im-r">${weekRange(x.wk)}</p><button class="icon-btn" data-step="1" aria-label="Sonraki hafta">${I.next}</button></div></div>`).join('')}</div>
-    <label class="f-h" for="sp-to">Kime?</label>
-    <select id="sp-to"><option value="">Bütün sınıf (${students.length} öğrenci)</option>${students.map(s => `<option value="${s.user_id}">${esc(s.p ? s.p.name : 'Öğrenci')}</option>`).join('')}</select>
     <p class="err" id="sp-e" role="alert"></p>
     <div class="row"><button class="btn primary" id="sp-go">Gönder</button></div>`);
   $('#sp-list', box).addEventListener('click', e => {
@@ -236,34 +255,75 @@ function sendProgramSheet(cid, items){
     x.wk = wkKey(addDays(fromKey(x.wk), 7 * Number(b.dataset.step)));
     el.querySelector('.im-r').textContent = weekRange(x.wk);
   });
+  box.querySelectorAll('.sp-to').forEach(sel => sel.addEventListener('change', () => { items[Number(sel.dataset.i)].to = sel.value; }));
   $('#sp-go', box).addEventListener('click', async () => {
-    const btn = $('#sp-go', box), to = $('#sp-to', box).value || null;
+    const miss = items.findIndex(x => !x.to);
+    if (miss >= 0){ $('#sp-e', box).textContent = `"${items[miss].title}" kime gidecek? Seç.`; $('#sp-to-' + miss, box).focus(); return; }
+    const btn = $('#sp-go', box);
     btn.disabled = true; btn.textContent = 'Gönderiliyor…';
-    const rows = items.map(x => ({ institution_id: inst, class_id: to ? null : cid, student_id: to, week_start: x.wk, title: x.title.slice(0, 120), tasks: toServerTasks(x.tasks), created_by: Cloud.uid }));
+    const rows = items.map(x => { const to = x.to === 'class' ? null : x.to;
+      return { institution_id: inst, class_id: to ? null : cid, student_id: to, week_start: x.wk, title: x.title.slice(0, 120), tasks: toServerTasks(x.tasks), created_by: Cloud.uid }; });
     const { error } = await Cloud.sb.from('programs').insert(rows);
     if (error){ btn.disabled = false; btn.textContent = 'Gönder'; $('#sp-e', box).textContent = 'Gönderilemedi: ' + error.message; return; }
-    closeSheet(); toast(to ? 'Program öğrenciye gönderildi' : 'Program sınıfa gönderildi'); await scLoad(inst, true);
+    const n = rows.filter(r => r.student_id).length;
+    closeSheet(); toast(rows.length === 1 ? (n ? 'Program öğrenciye gönderildi' : 'Program sınıfa gönderildi') : rows.length + ' program gönderildi' + (n ? ` (${n} öğrenciye özel)` : '')); await scLoad(inst, true);
   });
 }
-async function scExcel(files, cid){
+/* Excel: birden çok dosya ya da öğrenci başına bir sayfa olabilir */
+async function scExcel(files, cid, preset){
   const items = [], bad = [];
+  const toItem = (p, f, sheet, many) => {
+    if (!p.label){ const m = f.name.match(/(\d+)[\s_.-]*hafta/i); if (m) p.label = m[1] + '. Hafta'; }
+    let tasks = p.tasks.map(t => { const g = guessTask(t.text); return { day: t.day, text: t.text, label: sentence(t.text), type: g.type, subject: g.subject, topic: '' }; });
+    tasks = libraryMatch(tasks, libIndex()).tasks;
+    const base = f.name.replace(/\.xlsx$/i, '').replace(/_/g, ' ');
+    // birden çok program varsa başlıkta öğrencinin adı ya da sayfa adı görünsün
+    const who = many ? (p.student || sheet) : '';
+    return { title: who ? (p.label ? p.label + ' · ' : '') + who : (p.label || base), wk: p.monday || thisWeek(), tasks,
+      match: [many ? '' : base, sheet, p.student].filter(Boolean).join(' '), src: f.name + (sheet ? ' · ' + sheet : '') };
+  };
   for (const f of files){
     try {
       const sheets = readXlsx(await f.arrayBuffer());
-      let p = null; for (const rows of sheets){ p = parseProgram(rows); if (p) break; }
-      if (!p){ bad.push(f.name); continue; }
-      if (!p.label){ const m = f.name.match(/(\d+)[\s_.-]*hafta/i); if (m) p.label = m[1] + '. Hafta'; }
-      let tasks = p.tasks.map(t => { const g = guessTask(t.text); return { day: t.day, text: t.text, label: sentence(t.text), type: g.type, subject: g.subject, topic: '' }; });
-      tasks = libraryMatch(tasks, libIndex()).tasks;
-      items.push({ title: p.label || f.name.replace(/\.xlsx$/i, ''), wk: p.monday || thisWeek(), tasks });
+      const found = [];
+      sheets.forEach(rows => parsePrograms(rows).forEach(p => found.push({ p, sheet: rows.sheetName || '' })));
+      if (!found.length){ bad.push(f.name); continue; }
+      // birden çok sayfa ya da satırda öğrenci varsa her biri ayrı program
+      found.forEach(x => items.push(toItem(x.p, f, found.length > 1 ? x.sheet : '', found.length > 1)));
     } catch(e){ bad.push(f.name); }
   }
   if (!items.length){ toast('Dosyada haftalık program bulamadım. Gün adları (Pazartesi, Salı…) olan bir .xlsx seç.'); return; }
   if (bad.length) toast('Okunamayan dosya: ' + bad.join(', '));
-  sendProgramSheet(cid, items);
+  sendProgramSheet(cid, items, preset);
 }
 
-let scUploadClass = null;
+/* ---------- elle program yazma: gün gün, her satır bir görev ---------- */
+function programEditor(cid, to, prefill){
+  const [inst] = route.arg.split('/'), D = SC.data[inst];
+  const who = to ? ((D.members.find(x => x.user_id === to) || {}).p || {}).name || 'Öğrenci' : 'Bütün sınıf';
+  let wk = prefill && prefill.wk ? prefill.wk : thisWeek();
+  const lines = Array.from({ length: 7 }, (_, d) => (prefill && prefill.tasks ? prefill.tasks.filter(t => Number(t.day) === d).map(t => t.label || t.text).join('\n') : ''));
+  const box = openSheet('Program yaz: ' + who, `<p class="hint">Her güne bir satıra bir görev yaz. Ders ve konu kendiliğinden bulunur; öğrencide konu özeti ve video düğmeleri çıkar.</p>
+    <label class="f-h" for="pe-t">Başlık</label><input id="pe-t" class="input" maxlength="80" value="${esc(prefill && prefill.title || 'Haftalık program')}">
+    <div class="weeknav small"><button class="icon-btn" data-pe="-1" aria-label="Önceki hafta">${I.back}</button><p class="wk-r" id="pe-w">${weekRange(wk)}</p><button class="icon-btn" data-pe="1" aria-label="Sonraki hafta">${I.next}</button></div>
+    <div class="pe-days">${DAYS.map((d, i) => `<label class="f-h sm" for="pe-${i}">${d}</label><textarea id="pe-${i}" class="input pe-ta" rows="3" placeholder="${i === 0 ? 'Örn. Türev konu anlatımı\nTürev 40 soru' : ''}">${esc(lines[i])}</textarea>`).join('')}</div>
+    <p class="err" id="pe-e" role="alert"></p>
+    <div class="row"><button class="btn primary" id="pe-go">Gönder</button></div>`);
+  box.addEventListener('click', e => { const b = e.target.closest('[data-pe]'); if (!b) return; wk = wkKey(addDays(fromKey(wk), 7 * Number(b.dataset.pe))); $('#pe-w', box).textContent = weekRange(wk); });
+  $('#pe-go', box).addEventListener('click', async () => {
+    let tasks = [];
+    for (let d = 0; d < 7; d++) $('#pe-' + d, box).value.split('\n').map(x => x.trim()).filter(Boolean).forEach(text => { const g = guessTask(text); tasks.push({ day: d, text, label: sentence(text), type: g.type, subject: g.subject, topic: '' }); });
+    if (!tasks.length){ $('#pe-e', box).textContent = 'En az bir görev yaz.'; return; }
+    tasks = libraryMatch(tasks, libIndex()).tasks;
+    const btn = $('#pe-go', box); btn.disabled = true; btn.textContent = 'Gönderiliyor…';
+    const row = { institution_id: inst, class_id: to ? null : cid, student_id: to || null, week_start: wk, title: ($('#pe-t', box).value.trim() || 'Haftalık program').slice(0, 120), tasks: toServerTasks(tasks), created_by: Cloud.uid };
+    const { error } = await Cloud.sb.from('programs').insert(row);
+    if (error){ btn.disabled = false; btn.textContent = 'Gönder'; $('#pe-e', box).textContent = 'Gönderilemedi: ' + error.message; return; }
+    closeSheet(); toast(to ? who + ' için program gönderildi' : 'Program sınıfa gönderildi'); await scLoad(inst, true);
+  });
+}
+
+let scUploadClass = null, scUploadStudent = null;
 Object.assign(ACT, {
   'sc-join': () => {
     const box = openSheet('Kodla katıl', `<p class="hint">Hocandan aldığın sınıf kodunu ya da hoca kodunu yaz.</p>
@@ -326,29 +386,45 @@ Object.assign(ACT, {
     const { error } = await q; if (error){ toast(error.message); return; }
     delete SC.data[inst]; await Cloud.loadSchool(); await Cloud.pullPrograms(); go('#/dershane'); toast(m.role === 'owner' ? 'Dershane silindi' : 'Dershaneden ayrıldın');
   },
-  'sc-up': el => { scUploadClass = el.dataset.c; $('#file-xlsx-sc').click(); },
+  'sc-up': el => { scUploadClass = el.dataset.c; scUploadStudent = el.dataset.u || null; closeSheet(); $('#file-xlsx-sc').click(); },
+  'sc-write': el => { closeSheet(); programEditor(el.dataset.c, el.dataset.u || null); },
+  'sc-last': el => {
+    const [inst] = route.arg.split('/'), D = SC.data[inst], u = el.dataset.u;
+    const last = D.programs.filter(p => p.student_id === u).concat(D.programs.filter(p => p.class_id === el.dataset.c)).sort((a, b) => String(b.week_start).localeCompare(String(a.week_start)))[0];
+    if (!last){ toast('Bu öğrenciye daha önce program gönderilmemiş.'); return; }
+    closeSheet(); programEditor(el.dataset.c, u, { title: last.title, tasks: last.tasks || [], wk: wkKey(addDays(mondayOf(fromKey(last.week_start)), 7)) });
+  },
   'sc-mine': el => {
-    const cid = el.dataset.c;
+    const cid = el.dataset.c, to = el.dataset.u || null; closeSheet();
     const weeks = Object.keys(DB.d.weeks).sort().reverse().filter(k => DB.d.weeks[k].tasks.some(t => t.src !== 'dershane'));
     if (!weeks.length){ toast('Programında gönderilecek bir hafta yok. Önce Program sayfasında görevleri yaz.'); return; }
     const box = openSheet('Kendi programımdan', `<p class="hint">Hangi haftayı göndermek istiyorsun?</p><ul class="menu">${weeks.map(k => { const w = DB.d.weeks[k]; return `<li><button data-wk="${k}"><span>${esc(w.label || 'Program')}</span><span class="mv">${weekRange(k)}, ${w.tasks.filter(t => t.src !== 'dershane').length} görev</span></button></li>`; }).join('')}</ul>`);
     box.addEventListener('click', e => {
       const b = e.target.closest('[data-wk]'); if (!b) return;
       const w = DB.d.weeks[b.dataset.wk];
-      sendProgramSheet(cid, [{ title: w.label || 'Haftalık program', wk: b.dataset.wk, tasks: w.tasks.filter(t => t.src !== 'dershane') }]);
+      closeSheet(); sendProgramSheet(cid, [{ title: w.label || 'Haftalık program', wk: b.dataset.wk, tasks: w.tasks.filter(t => t.src !== 'dershane') }], to);
     });
   },
   'sc-prog-del': async el => {
     if (el.dataset.armed !== '1'){ el.dataset.armed = '1'; el.textContent = 'Tekrar bas'; return; }
     const { error } = await Cloud.sb.from('programs').delete().eq('id', el.dataset.p);
     if (error){ toast(error.message); return; }
-    toast('Program silindi'); scLoad(route.arg.split('/')[0], true);
+    closeSheet(); toast('Program silindi'); scLoad(route.arg.split('/')[0], true);
   },
   /* kurucu: üyeyi hoca ya da öğrenci yap */
   'sc-mem': el => roleSheet(el.dataset.u),
   'sc-stu': el => {
     const [inst, cid] = route.arg.split('/'), D = SC.data[inst], s = D.members.find(x => x.user_id === el.dataset.u); if (!s) return;
-    const box = openSheet(s.p ? s.p.name : 'Öğrenci', `<label class="f-h" for="ss-c">Sınıfı</label>
+    const mine = D.programs.filter(p => p.student_id === s.user_id).sort((a, b) => String(b.week_start).localeCompare(String(a.week_start)));
+    const u = s.user_id;
+    const box = openSheet(s.p ? s.p.name : 'Öğrenci', `<p class="hint">${esc(whoTag(s.p) || '')}${s.p && s.p.goal ? ' · ' + esc(s.p.goal) + ' hedefliyor' : ''}</p>
+      <h3 class="f-h">Bu öğrenciye özel program</h3>
+      <div class="row"><button class="btn primary" data-act="sc-write" data-c="${cid}" data-u="${u}">Program yaz</button><button class="btn" data-act="sc-up" data-c="${cid}" data-u="${u}">Excel'den yükle</button>
+        ${mine.length ? `<button class="btn" data-act="sc-last" data-c="${cid}" data-u="${u}">Son programdan başla</button>` : ''}<button class="btn" data-act="sc-mine" data-c="${cid}" data-u="${u}">Kendi programımdan</button></div>
+      ${mine.length ? `<ul class="plist">${mine.slice(0, 6).map(p => { const n = (p.tasks || []).length, dn = doneCount(p, u);
+        return `<li><div><strong>${esc(p.title || 'Program')}</strong><span class="hint">${weekRange(wkKey(mondayOf(fromKey(p.week_start))))} · ${n} görev${n ? ' · %' + Math.round(dn / n * 100) + ' bitti' : ''}</span></div><button class="link danger sm" data-act="sc-prog-del" data-p="${p.id}">Sil</button></li>`; }).join('')}</ul>`
+        : '<p class="hint">Bu öğrenciye henüz özel program gönderilmedi; sınıfa gönderilenleri alıyor.</p>'}
+      <label class="f-h" for="ss-c">Sınıfı</label>
       <select id="ss-c">${D.classes.map(c => `<option value="${c.id}"${c.id === cid ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
       <div class="row"><button class="btn primary" id="ss-go">Kaydet</button>${Cloud.member(inst) && Cloud.member(inst).role === 'owner' ? '<button class="btn" id="ss-t">Hoca yap</button>' : ''}<button class="btn danger" id="ss-x">Dershaneden çıkar</button></div>`);
     const st = $('#ss-t', box); if (st) st.addEventListener('click', () => setRole(inst, s.user_id, 'teacher', null, s.p ? s.p.name : ''));
@@ -365,6 +441,6 @@ Object.assign(ACT, {
   }
 });
 document.addEventListener('change', e => {
-  if (e.target.id === 'file-xlsx-sc'){ const fs = Array.from(e.target.files || []); e.target.value = ''; if (fs.length && scUploadClass) scExcel(fs, scUploadClass); }
+  if (e.target.id === 'file-xlsx-sc'){ const fs = Array.from(e.target.files || []); e.target.value = ''; if (fs.length && scUploadClass) scExcel(fs, scUploadClass, scUploadStudent); }
 });
 VIEWS.dershane = dershaneView;
