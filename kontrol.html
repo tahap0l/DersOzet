@@ -34,7 +34,7 @@
   <div class="box" id="rows"></div>
   <div>
     <button id="fix">Temizle ve uygulamayı aç</button>
-    <a class="btn" href="./" style="background:#fff;color:#261E3A;border:1px solid #CFC6EE">Uygulamayı aç</a>
+    <a class="btn" href="app/" style="background:#fff;color:#261E3A;border:1px solid #CFC6EE">Uygulamayı aç</a>
   </div>
   <p style="margin-top:18px;font-size:13px;color:#6A6184">Sonuç bana otomatik geldi. İstersen bu ekranın görüntüsünü de at.</p>
 </main>
@@ -94,8 +94,8 @@
       x.onload = function(){ cb(x.status, (x.responseText || '').length); }; x.onerror = function(){ cb(0, 0); }; x.send();
     } catch(e){ cb(-1, 0); }
   }
-  head('index.html', function(st, n){ row('Uygulama sayfası', st === 200 ? 'geldi (' + Math.round(n / 1024) + ' KB)' : 'gelmedi (' + st + ')', st === 200); });
-  head(modern ? 'vendor/supabase.min.js' : 'legacy/vendor/supabase.min.js', function(st, n){ row('Giriş kütüphanesi', st === 200 ? 'geldi (' + Math.round(n / 1024) + ' KB)' : 'gelmedi (' + st + ')', st === 200); });
+  head('app/index.html', function(st, n){ row('Uygulama sayfası', st === 200 ? 'geldi (' + Math.round(n / 1024) + ' KB)' : 'gelmedi (' + st + ')', st === 200); });
+  head(modern ? 'app/vendor/supabase.min.js' : 'app/legacy/vendor/supabase.min.js', function(st, n){ row('Giriş kütüphanesi', st === 200 ? 'geldi (' + Math.round(n / 1024) + ' KB)' : 'gelmedi (' + st + ')', st === 200); });
   head('https://gwmetoexnklzdyzrvgdv.supabase.co/auth/v1/health', function(st){ row('Sunucu (Supabase)', st ? 'ulaşılıyor' : 'ulaşılamıyor', !!st); });
 
   // uygulamayı görünmez bir çerçevede aç, ne olduğuna bak
@@ -104,7 +104,7 @@
     var w = fr.contentWindow;
     try { w.addEventListener('error', function(e){ errs.push((e.message || 'dosya yüklenemedi') + (e.filename ? ' @' + String(e.filename).split('/').pop() + ':' + e.lineno : e.target && e.target.src ? ' @' + String(e.target.src).split('/').pop() : '')); }, true); } catch(e){}
   };
-  fr.src = './?nosw&kontrol=' + Date.now();
+  fr.src = 'app/?nosw&kontrol=' + Date.now();
   var tries = 0;
   var iv = setInterval(function(){
     tries++;
@@ -137,7 +137,7 @@
     var jobs = [];
     try { if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){ return Promise.all(rs.map(function(r){ return r.unregister(); })); })); } catch(e){}
     try { if (window.caches) jobs.push(caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); })); } catch(e){}
-    var go = function(){ location.href = './?t=' + Date.now(); };
+    var go = function(){ location.href = 'app/?t=' + Date.now(); };
     if (window.Promise && jobs.length) Promise.all(jobs).then(go, go); else go();
   };
 })();

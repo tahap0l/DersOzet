@@ -19,3 +19,6 @@
 
 /site/shots/*
   Cache-Control: public, max-age=604800
+
+/kontrol.html
+  Cache-Control: no-cache
