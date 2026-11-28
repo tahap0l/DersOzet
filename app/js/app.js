@@ -775,7 +775,7 @@ function bindWelcome(){
   f.querySelectorAll('input[name="w-kind"]').forEach(i => i.addEventListener('change', sync)); sync();
   f.addEventListener('submit', async e => {
     e.preventDefault();
-    const err = t => { $('#w-e').textContent = t; };
+    const err = t => { const el = $('#w-e'); if (el) el.textContent = t; else toast(t); };
     const kind = ($('input[name="w-kind"]:checked') || {}).value;
     if (!kind){ err('Hoca mı öğrenci mi olduğunu seç.'); return; }
     const teacher = kind === 'teacher';
@@ -783,12 +783,15 @@ function bindWelcome(){
     if (!fullNameOk(name)){ err('Adını ve soyadını yaz.'); $('#w-name').focus(); return; }
     const gr = $('input[name="w-grade"]:checked');
     if (!teacher && !gr){ err('Kaçıncı sınıfta olduğunu seç.'); return; }
+    // formdaki her şeyi şimdi oku: kod ve şifre beklenirken sayfa yeniden çizilebilir, alanlar kaybolur
+    const val = sel => { const el = $(sel); return el ? el.value.trim() : ''; };
+    const grade = gr ? gr.value : '', track = val('input[name="w-track"]:checked') || 'SAY', goal = val('#w-goal'), branch = val('#w-branch');
     const pw = $('#w-pw') ? $('#w-pw').value : '';
     if (pw){
       if (pw.length < 6){ err('Şifre en az 6 karakter olmalı ya da boş bırak.'); return; }
       try { await Cloud.setPassword(pw); DB.d.profile.pwSet = true; } catch(e2){ err(AUTH_ERR(e2)); return; }
     }
-    const ci = $(teacher ? '#w-tcode' : '#w-code'), code = ci ? ci.value.trim() : '';
+    const code = val(teacher ? '#w-tcode' : '#w-code');
     if (!teacher && Cloud.anyStaff() && !code){ err('Dershanede hoca olarak kayıtlısın. Öğrenciysen hocanın verdiği sınıf kodunu yaz ya da kurucudan seni öğrenci yapmasını iste.'); return; }
     if (code){
       try { await Cloud.joinCode(code); }
@@ -796,10 +799,10 @@ function bindWelcome(){
     }
     const p = DB.d.profile;
     p.name = name; p.kind = Cloud.anyStaff() ? 'teacher' : kind;
-    if (teacher){ p.grade = ''; p.branch = titleCase($('#w-branch').value.trim()).slice(0, 30); }
+    if (teacher){ p.grade = ''; p.branch = titleCase(branch).slice(0, 30); }
     else {
-      p.grade = gr.value; const tr = $('input[name="w-track"]:checked'); p.track = tr ? tr.value : 'SAY';
-      const gd = $('#w-goal').value.trim(); if (gd) p.goal = { school: '', dept: titleCase(gd).slice(0, 60) };
+      p.grade = grade; p.track = track;
+      if (goal) p.goal = { school: '', dept: titleCase(goal).slice(0, 60) };
     }
     DB.d.onboarded = true; DB.save();
     go(teacher && Cloud.school.length ? '#/dershane/' + Cloud.school[0].institution_id : '#/bugun');

@@ -1,0 +1,947 @@
+/* Ders Özetim — Copyright (C) 2026 Esat Taha Polat — AGPL-3.0. Eski tarayıcılar için çevrilmiş kopya; kaynak app/js, üreten tools/build-legacy.sh */
+"use strict";
+const RL = { list: null, busy: false, err: "" };
+async function roomsLoad(force) {
+  if (RL.busy || RL.list && !force) return;
+  RL.busy = true;
+  RL.err = "";
+  try {
+    const { data, error } = await Cloud.sb.from("rooms").select("id, name, kind, institution_id, class_id, code, created_by, last_active").eq("closed", false).order("last_active", { ascending: false }).limit(60);
+    if (error) throw error;
+    RL.list = data || [];
+  } catch (e) {
+    RL.err = "Odalar alınamadı. İnternet bağlantını kontrol et.";
+  }
+  RL.busy = false;
+  if (route.page === "odalar") render();
+}
+function ago(ts) {
+  const m = Math.round((Date.now() - new Date(ts).getTime()) / 6e4);
+  return m < 3 ? "şu an aktif" : m < 60 ? m + " dk önce" : m < 1440 ? Math.round(m / 60) + " saat önce" : Math.round(m / 1440) + " gün önce";
+}
+function roomsView() {
+  if (!RL.list) {
+    roomsLoad();
+  }
+  const list = RL.list || [];
+  const sch = list.filter((r) => r.kind === "class"), priv = list.filter((r) => r.kind === "private");
+  const instName = (id) => {
+    const m = Cloud.member(id);
+    return m && m.inst ? m.inst.name : "Dershane";
+  };
+  const className = (inst, cid) => {
+    const m = Cloud.member(inst);
+    if (!cid) return "Bütün dershane";
+    const d = SC.data[inst];
+    const c = d && d.classes.find((x) => x.id === cid);
+    return c ? c.name : m && m.cls && m.cls.id === cid ? m.cls.name : "Sınıf";
+  };
+  const row = (r) => '<li><a class="room-row'.concat(Date.now() - new Date(r.last_active).getTime() < 18e4 ? " live" : "", '" href="#/oda/').concat(r.id, '">\n      <span class="rr-dot" aria-hidden="true"></span>\n      <span class="cl-b"><strong>').concat(esc(r.name), "</strong><span>").concat(r.kind === "class" ? esc(instName(r.institution_id)) + " · " + esc(className(r.institution_id, r.class_id)) : "Kodla girilen oda" + (r.code ? " · " + esc(r.code) : ""), " · ").concat(ago(r.last_active), "</span></span>").concat(I.next, "</a></li>");
+  return '<header class="page-head"><h1>Birlikte çalış</h1><button class="icon-btn" data-act="rooms-reload" aria-label="Yenile">'.concat(I.refresh, '</button></header>\n  <p class="sub">Arkadaşlarınla aynı odada ortak odak sayacıyla çalış. Kamera ve mikrofon sen açana kadar kapalı kalır.</p>\n  <div class="row"><button class="btn primary" data-act="room-new">Oda aç</button><button class="btn" data-act="room-code">Kodla katıl</button><a class="btn" href="#/odak">Tek başına</a></div>\n  ').concat(RL.err ? '<p class="err">'.concat(esc(RL.err), "</p>") : "", "\n  ").concat(!RL.list && !RL.err ? '<div class="progress"><span class="spinner" aria-hidden="true"></span><span>Odalar yükleniyor…</span></div>' : "", "\n  ").concat(RL.list ? '\n  <section class="block"><div class="block-head"><h2>Dershane odaları</h2></div>\n    '.concat(sch.length ? '<ul class="rooms">'.concat(sch.map(row).join(""), "</ul>") : '<p class="hint">'.concat(Cloud.school.length ? "Şu an açık dershane odası yok. İlk odayı sen aç." : "Bir dershaneye katılınca sınıfının odalarını burada görürsün.", "</p>").concat(Cloud.school.length ? "" : '<div class="row"><a class="link" href="#/dershane">Dershaneye katıl</a></div>'), '\n  </section>\n  <section class="block"><div class="block-head"><h2>Arkadaş odaların</h2></div>\n    ').concat(priv.length ? '<ul class="rooms">'.concat(priv.map(row).join(""), "</ul>") : '<p class="hint">Bir oda açıp kodunu arkadaşlarına gönder ya da onların kodunu yaz.</p>', "\n  </section>") : "", '\n  <p class="hint safety">Odada adresini, telefonunu ya da okulunu paylaşma. Rahatsız olursan kişiyi şikâyet et ya da odadan çık.</p>');
+}
+const Room = {
+  id: null,
+  room: null,
+  ch: null,
+  peers: {},
+  local: null,
+  mic: false,
+  cam: false,
+  front: true,
+  present: {},
+  msgs: [],
+  tab: "grid",
+  tick: null,
+  wake: null,
+  unread: 0,
+  ice: null,
+  muted: /* @__PURE__ */ new Set(),
+  counted: 0,
+  mod: false,
+  async enter(id) {
+    if (this.id === id) return;
+    if (this.id) await this.leave(true);
+    this.id = id;
+    this.room = null;
+    this.msgs = [];
+    this.present = {};
+    this.peers = {};
+    this.unread = 0;
+    this.tab = "grid";
+    this.counted = 0;
+    const sb = Cloud.sb;
+    try {
+      await Cloud.rpc("enter_room", { p_room: id });
+      const [r, m] = await Promise.all([
+        sb.from("rooms").select("*").eq("id", id).single(),
+        sb.from("messages").select("id, user_id, body, created_at, p:profiles(name)").eq("room_id", id).order("created_at", { ascending: false }).limit(60)
+      ]);
+      if (r.error) throw r.error;
+      if (this.id !== id) return;
+      this.room = r.data;
+      this.msgs = (m.data || []).reverse();
+      this.mod = this.room.created_by === Cloud.uid || this.room.kind === "class" && Cloud.isStaff(this.room.institution_id);
+    } catch (e) {
+      this.id = null;
+      toast(e.message && /erişim/.test(e.message) ? "Bu odaya erişimin yok." : "Odaya girilemedi.");
+      go("#/odalar");
+      return;
+    }
+    this.ice = (window.DO_CONFIG || {}).iceServers || [];
+    sb.functions.invoke("turn").then((r) => {
+      if (r && r.data && Array.isArray(r.data.iceServers) && r.data.iceServers.length) this.ice = this.ice.concat(r.data.iceServers);
+    }).catch(() => {
+    });
+    try {
+      await sb.realtime.setAuth();
+    } catch (e) {
+    }
+    const ch = this.ch = sb.channel("room:" + id, { config: { private: true, presence: { key: Cloud.uid }, broadcast: { self: false } } });
+    ch.on("presence", { event: "sync" }, () => this.onSync()).on("broadcast", { event: "sig" }, ({ payload }) => this.onSignal(payload)).on("broadcast", { event: "timer" }, ({ payload }) => {
+      this.room.timer = payload || {};
+      this.paintTimer();
+    }).on("broadcast", { event: "kick" }, ({ payload }) => {
+      if (payload && payload.uid === Cloud.uid) {
+        this.leave();
+        toast("Odadan çıkarıldın.");
+        go("#/odalar");
+      }
+    }).on("broadcast", { event: "closed" }, () => {
+      this.leave();
+      toast("Oda kapatıldı.");
+      go("#/odalar");
+    }).on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: "room_id=eq." + id }, (p) => this.onMessage(p.new)).on("postgres_changes", { event: "DELETE", schema: "public", table: "messages", filter: "room_id=eq." + id }, (p) => {
+      this.msgs = this.msgs.filter((x) => x.id !== p.old.id);
+      this.paintChat();
+    }).subscribe((st) => {
+      if (st === "SUBSCRIBED") this.track();
+      if (st === "CHANNEL_ERROR" || st === "TIMED_OUT") {
+        const s = $("#rm-status");
+        if (s) s.textContent = "Bağlantı koptu, yeniden deneniyor…";
+      }
+    });
+    this.tick = setInterval(() => this.paintTimer(), 500);
+    this.lockScreen();
+    if (route.page === "oda" && route.arg === id) render();
+  },
+  async leave(silent) {
+    const ch = this.ch;
+    this.ch = null;
+    clearInterval(this.tick);
+    this.tick = null;
+    Object.keys(this.peers).forEach((u) => this.dropPeer(u));
+    if (this.local) {
+      this.local.getTracks().forEach((t) => t.stop());
+      this.local = null;
+    }
+    this.mic = false;
+    this.cam = false;
+    Object.values(this.levels).forEach((L) => {
+      try {
+        L.src.disconnect();
+      } catch (e) {
+      }
+    });
+    this.levels = {};
+    clearInterval(this.levelT);
+    this.levelT = null;
+    if (ch) {
+      try {
+        await ch.untrack();
+      } catch (e) {
+      }
+      try {
+        await Cloud.sb.removeChannel(ch);
+      } catch (e) {
+      }
+    }
+    if (this.wake) {
+      try {
+        this.wake.release();
+      } catch (e) {
+      }
+      this.wake = null;
+    }
+    this.id = null;
+    this.room = null;
+    this.syncAudio();
+    roomMiniPaint();
+    if (!silent) RL.list = null;
+  },
+  /* --- sesler sayfadan bağımsız çalar: odadan başka sayfaya geçince konuşma kesilmez --- */
+  syncAudio() {
+    const box = document.getElementById("room-audio");
+    if (!box) return;
+    const want = this.id ? Object.keys(this.peers) : [];
+    $$("audio", box).forEach((a) => {
+      if (!want.includes(a.dataset.u)) {
+        a.srcObject = null;
+        a.remove();
+      }
+    });
+    want.forEach((u) => {
+      const P = this.peers[u], tracks = P.stream.getAudioTracks();
+      let a = box.querySelector('audio[data-u="' + u + '"]');
+      if (!tracks.length) {
+        if (a) {
+          a.srcObject = null;
+          a.remove();
+        }
+        return;
+      }
+      if (!a) {
+        a = document.createElement("audio");
+        a.dataset.u = u;
+        a.autoplay = true;
+        a.setAttribute("playsinline", "");
+        box.appendChild(a);
+      }
+      const tid = tracks.map((t) => t.id).join(",");
+      if (a.dataset.tid !== tid) {
+        a.srcObject = new MediaStream(tracks);
+        a.dataset.tid = tid;
+      }
+      a.muted = this.muted.has(u);
+      if (a.paused) a.play().catch(() => {
+      });
+    });
+  },
+  me() {
+    const t = this.room && this.room.timer || {};
+    return { uid: Cloud.uid, name: DB.d.profile.name || "Ben", grade: DB.d.profile.grade || "", kind: DB.d.profile.kind || "", branch: DB.d.profile.branch || "", mic: this.mic, cam: this.cam, st: t.running ? t.mode : "idle", doing: roomDoing(), music: roomMusic(), at: Date.now() };
+  },
+  track() {
+    if (this.ch) {
+      const m = this.me();
+      this.lastSig = JSON.stringify([m.doing, m.music, m.mic, m.cam, m.st]);
+      this.ch.track(m).catch(() => {
+      });
+    }
+  },
+  retrack() {
+    if (!this.ch) return;
+    const m = this.me();
+    if (JSON.stringify([m.doing, m.music, m.mic, m.cam, m.st]) !== this.lastSig) {
+      this.track();
+      this.paintTile(Cloud.uid);
+    }
+  },
+  /* --- konuşanı bulma: ses seviyesi eşiği aşınca kutunun çevresi yeşil yanar --- */
+  levels: {},
+  watchLevel(uid, stream) {
+    const L = this.levels[uid];
+    const tr = stream && stream.getAudioTracks().find((t) => t.readyState === "live");
+    if (!tr) {
+      if (L) {
+        try {
+          L.src.disconnect();
+        } catch (e) {
+        }
+        delete this.levels[uid];
+      }
+      return;
+    }
+    if (L && L.track === tr) return;
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {
+      });
+      if (L) {
+        try {
+          L.src.disconnect();
+        } catch (e) {
+        }
+      }
+      const src = audioCtx.createMediaStreamSource(new MediaStream([tr])), an = audioCtx.createAnalyser();
+      an.fftSize = 512;
+      an.smoothingTimeConstant = 0.4;
+      src.connect(an);
+      this.levels[uid] = { src, an, track: tr, buf: new Float32Array(an.fftSize), until: 0 };
+    } catch (e) {
+    }
+    if (!this.levelT) this.levelT = setInterval(() => this.checkLevels(), 120);
+  },
+  checkLevels() {
+    const g = $("#rg");
+    if (!g || !this.id) {
+      clearInterval(this.levelT);
+      this.levelT = null;
+      return;
+    }
+    const now = Date.now();
+    Object.entries(this.levels).forEach(([uid, L]) => {
+      L.an.getFloatTimeDomainData(L.buf);
+      let sum = 0;
+      for (let i = 0; i < L.buf.length; i++) sum += L.buf[i] * L.buf[i];
+      const rms = Math.sqrt(sum / L.buf.length);
+      const self = uid === Cloud.uid, live = self ? this.mic : this.present[uid] && this.present[uid].mic && !this.muted.has(uid);
+      if (live && rms > 0.025) L.until = now + 350;
+      const el = g.querySelector('.tile[data-u="' + uid + '"]');
+      if (el) el.classList.toggle("speaking", L.until > now);
+    });
+  },
+  onSync() {
+    const st = this.ch ? this.ch.presenceState() : {};
+    const now = {};
+    Object.keys(st).forEach((k) => {
+      const a = st[k];
+      if (a && a.length) now[k] = a[a.length - 1];
+    });
+    Object.keys(this.peers).forEach((u) => {
+      if (!now[u]) this.dropPeer(u);
+    });
+    this.present = now;
+    if (this.local) this.others().slice(0, this.cap()).forEach((u) => this.peer(u));
+    this.paintGrid();
+    this.syncAudio();
+    roomMiniPaint();
+  },
+  others() {
+    return Object.keys(this.present).filter((u) => u !== Cloud.uid).sort();
+  },
+  cap() {
+    return (window.DO_CONFIG || {}).maxVideoPeers || 8;
+  },
+  /* --- WebRTC: her kişiyle ayrı bağlantı, "kibar/kaba" çakışma çözümüyle --- */
+  peer(uid) {
+    let P = this.peers[uid];
+    if (P) return P;
+    const pc = new RTCPeerConnection({ iceServers: this.ice });
+    P = this.peers[uid] = { pc, polite: Cloud.uid < uid, making: false, ignore: false, stream: new MediaStream() };
+    pc.onicecandidate = (e) => {
+      if (e.candidate) this.send(uid, { cand: e.candidate.toJSON() });
+    };
+    pc.onnegotiationneeded = async () => {
+      try {
+        P.making = true;
+        await pc.setLocalDescription();
+        this.send(uid, { desc: { type: pc.localDescription.type, sdp: pc.localDescription.sdp } });
+      } catch (e) {
+      } finally {
+        P.making = false;
+      }
+    };
+    pc.ontrack = (e) => {
+      const tr = e.track;
+      P.stream.getTracks().filter((x) => x.kind === tr.kind).forEach((x) => P.stream.removeTrack(x));
+      P.stream.addTrack(tr);
+      tr.onunmute = () => this.paintTile(uid);
+      tr.onmute = () => this.paintTile(uid);
+      tr.onended = () => {
+        P.stream.removeTrack(tr);
+        this.paintTile(uid);
+      };
+      this.paintTile(uid, true);
+      this.syncAudio();
+    };
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === "failed") {
+        try {
+          pc.restartIce();
+        } catch (e) {
+        }
+      }
+      this.paintTile(uid);
+    };
+    if (this.local) this.local.getTracks().forEach((t) => pc.addTrack(t, this.local));
+    return P;
+  },
+  dropPeer(uid) {
+    const P = this.peers[uid];
+    if (!P) return;
+    try {
+      P.pc.close();
+    } catch (e) {
+    }
+    delete this.peers[uid];
+    this.syncAudio();
+  },
+  send(to, data) {
+    if (this.ch) this.ch.send({ type: "broadcast", event: "sig", payload: Object.assign({ from: Cloud.uid, to }, data) });
+  },
+  async onSignal(s) {
+    if (!s || s.to !== Cloud.uid || !s.from || s.from === Cloud.uid) return;
+    const P = this.peer(s.from), pc = P.pc;
+    try {
+      if (s.desc) {
+        const collision = s.desc.type === "offer" && (P.making || pc.signalingState !== "stable");
+        P.ignore = !P.polite && collision;
+        if (P.ignore) return;
+        await pc.setRemoteDescription(s.desc);
+        if (s.desc.type === "offer") {
+          await pc.setLocalDescription();
+          this.send(s.from, { desc: { type: pc.localDescription.type, sdp: pc.localDescription.sdp } });
+        }
+      } else if (s.cand) {
+        try {
+          await pc.addIceCandidate(s.cand);
+        } catch (e) {
+          if (!P.ignore) throw e;
+        }
+      }
+    } catch (e) {
+      console.warn("rtc", e);
+    }
+  },
+  async setMedia(kind, on) {
+    if (on) {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast("Bu tarayıcı kamera ve mikrofonu desteklemiyor.");
+        return;
+      }
+      if (this.others().length >= this.cap() && kind === "cam") {
+        toast("Odada " + this.cap() + " kişiden fazla var; görüntü yerine ses ve sohbet kullan.");
+        return;
+      }
+      try {
+        const s = await navigator.mediaDevices.getUserMedia(kind === "mic" ? { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } } : { video: { facingMode: this.front ? "user" : "environment", width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 20, max: 24 } } });
+        const track = s.getTracks()[0];
+        if (!this.local) this.local = new MediaStream();
+        this.local.getTracks().filter((t) => t.kind === track.kind).forEach((t) => {
+          t.stop();
+          this.local.removeTrack(t);
+        });
+        this.local.addTrack(track);
+        this.others().slice(0, this.cap()).forEach((u) => {
+          const P = this.peer(u);
+          const snd = P.pc.getSenders().find((x) => x.track && x.track.kind === track.kind) || P.pc.getSenders().find((x) => !x.track && x.__kind === track.kind);
+          if (snd) snd.replaceTrack(track);
+          else {
+            const x = P.pc.addTrack(track, this.local);
+            x.__kind = track.kind;
+          }
+        });
+      } catch (e) {
+        const what = kind === "mic" ? "Mikrofon" : "Kamera", n = e && e.name;
+        toast(n === "NotAllowedError" || n === "SecurityError" ? what + " izni verilmedi. Adres çubuğundaki kilit simgesine dokunup " + what.toLocaleLowerCase("tr") + " iznini aç, sonra tekrar dene." : n === "NotFoundError" || n === "OverconstrainedError" ? "Bu cihazda " + what.toLocaleLowerCase("tr") + " bulunamadı." : n === "NotReadableError" || n === "AbortError" ? what + " başka bir uygulamada açık olabilir. O uygulamayı kapatıp tekrar dene." : what + " açılamadı.");
+        return;
+      }
+    } else if (this.local) {
+      const k = kind === "mic" ? "audio" : "video";
+      this.local.getTracks().filter((t) => t.kind === k).forEach((t) => {
+        t.stop();
+        this.local.removeTrack(t);
+      });
+      Object.values(this.peers).forEach((P) => P.pc.getSenders().forEach((x) => {
+        if (x.track && x.track.kind === k) {
+          x.__kind = k;
+          x.replaceTrack(null);
+        }
+      }));
+    }
+    this[kind] = on;
+    this.track();
+    this.paintGrid();
+    this.paintCtl();
+  },
+  /* --- ortak sayaç --- */
+  timerLeft() {
+    const t = this.room.timer || {};
+    if (!t.mode) return DB.d.focus.focus * 60;
+    return t.running ? Math.max(0, (t.endsAt - Date.now()) / 1e3) : t.left != null ? t.left : t.len * 60;
+  },
+  setTimer(t) {
+    t.by = DB.d.profile.name || "";
+    this.room.timer = t;
+    if (this.ch) this.ch.send({ type: "broadcast", event: "timer", payload: t });
+    Cloud.rpc("set_room_timer", { p_room: this.id, p_timer: t }).catch(() => {
+    });
+    this.track();
+    this.paintTimer();
+  },
+  timerGo() {
+    const t = Object.assign({ mode: "focus", len: DB.d.focus.focus, brk: DB.d.focus.brk }, this.room.timer || {});
+    if (t.running) {
+      t.left = Math.round(this.timerLeft());
+      t.running = false;
+      t.endsAt = 0;
+    } else {
+      const left = t.left != null ? t.left : t.len * 60;
+      t.running = true;
+      t.endsAt = Date.now() + left * 1e3;
+      t.left = null;
+    }
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    } catch (e) {
+    }
+    this.setTimer(t);
+  },
+  timerSet(len, brk) {
+    this.setTimer({ mode: "focus", len, brk, running: false, endsAt: 0, left: len * 60 });
+  },
+  timerReset() {
+    const t = this.room.timer || {};
+    this.setTimer({ mode: t.mode || "focus", len: t.len || DB.d.focus.focus, brk: t.brk || DB.d.focus.brk, running: false, endsAt: 0, left: (t.mode === "brk" ? t.brk || 5 : t.len || 25) * 60 });
+  },
+  timerEnd() {
+    const t = this.room.timer;
+    if (!t || !t.running || t.endsAt > Date.now() || this.counted === t.endsAt) return;
+    this.counted = t.endsAt;
+    if (t.mode === "focus") {
+      bump(dayKey(), "focus", t.len);
+      DB.save();
+      toast("Ortak odak turu bitti: " + t.len + " dakika serine eklendi. Mola!");
+    } else toast("Mola bitti. Hazırsan devam.");
+    beep();
+    const next = t.mode === "focus" ? { mode: "brk", len: t.len, brk: t.brk, running: true, endsAt: Date.now() + (t.brk || 5) * 6e4, left: null } : { mode: "focus", len: t.len, brk: t.brk, running: false, endsAt: 0, left: t.len * 60 };
+    const leader = Object.keys(this.present).sort()[0] === Cloud.uid;
+    if (leader) this.setTimer(next);
+    else {
+      this.room.timer = next;
+      this.track();
+    }
+  },
+  /* --- sohbet --- */
+  onMessage(m) {
+    if (!m || this.msgs.some((x) => x.id === m.id)) return;
+    const who = this.present[m.user_id];
+    m.p = { name: who ? who.name : (this.msgs.find((x) => x.user_id === m.user_id) || { p: { name: "" } }).p.name || "Biri" };
+    this.msgs.push(m);
+    if (this.msgs.length > 200) this.msgs.shift();
+    if (this.tab !== "chat" && m.user_id !== Cloud.uid && !this.wide()) this.unread++;
+    this.paintChat();
+    this.paintCtl();
+  },
+  async sendMsg(body) {
+    body = body.trim().slice(0, 500);
+    if (!body) return;
+    const { data, error } = await Cloud.sb.from("messages").insert({ room_id: this.id, user_id: Cloud.uid, body }).select("id, user_id, body, created_at").single();
+    if (error) {
+      toast(/hızlı/.test(error.message) ? error.message : "Mesaj gönderilemedi.");
+      return false;
+    }
+    this.onMessage(data);
+    return true;
+  },
+  wide() {
+    return matchMedia("(min-width: 900px)").matches;
+  },
+  async lockScreen() {
+    try {
+      if ("wakeLock" in navigator && !this.wake) {
+        this.wake = await navigator.wakeLock.request("screen");
+        this.wake.addEventListener("release", () => {
+          this.wake = null;
+        });
+      }
+    } catch (e) {
+    }
+  },
+  /* --- çizim --- */
+  paintGrid() {
+    const g = $("#rg");
+    if (!g) return;
+    const ids = [Cloud.uid].concat(this.others());
+    $$(".tile", g).forEach((el) => {
+      if (!ids.includes(el.dataset.u)) el.remove();
+    });
+    ids.forEach((u) => this.paintTile(u));
+    g.dataset.n = Math.min(ids.length, 9);
+    const c = $("#rm-count");
+    if (c) c.textContent = ids.length + " kişi";
+  },
+  paintTile(u, fresh) {
+    const g = $("#rg");
+    if (!g) return;
+    const self = u === Cloud.uid, info = self ? this.me() : this.present[u];
+    if (!info) return;
+    let el = g.querySelector('.tile[data-u="' + u + '"]');
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "tile";
+      el.dataset.u = u;
+      el.innerHTML = "<video playsinline autoplay".concat(self ? " muted" : "", '></video><span class="t-av" aria-hidden="true"></span><span class="t-info"></span><span class="t-name"></span><span class="t-st"></span>').concat(self ? "" : '<button class="t-menu icon-btn ghost sm" data-act="rm-who" data-u="'.concat(u, '" aria-label="Seçenekler">').concat(I.dots, "</button>"));
+      if (self) g.prepend(el);
+      else g.appendChild(el);
+    }
+    const v = el.querySelector("video");
+    const stream = self ? this.local : this.peers[u] && this.peers[u].stream;
+    const hasVideo = !!stream && stream.getVideoTracks().some((t) => t.readyState === "live" && !t.muted) && (self ? this.cam : info.cam);
+    if (stream && v.srcObject !== stream) {
+      v.srcObject = stream;
+    }
+    if (stream && (fresh || v.paused)) v.play().catch(() => {
+    });
+    v.muted = true;
+    el.classList.toggle("has-video", hasVideo);
+    el.classList.toggle("self", self);
+    el.classList.toggle("mirror", self && this.front);
+    el.querySelector(".t-av").textContent = String(info.name || "?").charAt(0).toLocaleUpperCase("tr");
+    el.querySelector(".t-name").textContent = (info.name || "") + (whoTag(info) ? " · " + whoTag(info) : "") + (self ? " (sen)" : "");
+    const mu = info.music, dg = info.doing;
+    el.querySelector(".t-info").innerHTML = (dg ? '<span class="ti doing">'.concat(I.book, "<span>").concat(esc(dg), "</span></span>") : "") + (mu && mu.t ? '<span class="ti music '.concat(mu.k === "yt" ? "yt" : "sp", '">').concat(mu.k === "yt" ? I.play : I.music, "<span>").concat(esc(mu.t), "</span></span>") : "");
+    this.watchLevel(u, stream);
+    const P = this.peers[u], conn = !self && P && (info.mic || info.cam) && P.pc.connectionState !== "connected" ? " · bağlanıyor" : "";
+    el.querySelector(".t-st").innerHTML = (info.mic ? I.mic : I.micOff) + (this.muted.has(u) ? "<span>sessizde</span>" : "") + (conn ? "<span>".concat(conn.slice(3), "</span>") : "");
+  },
+  paintTimer() {
+    if (!this.room) return;
+    this.timerEnd();
+    const t = this.room.timer || {}, left = this.timerLeft();
+    const el = $("#rt-time");
+    if (el) el.textContent = pmFmt(left);
+    const md = $("#rt-mode");
+    if (md) md.textContent = !t.mode ? "Ortak sayaç hazır" : (t.mode === "focus" ? "Odak" : "Mola") + (t.running ? "" : ", duraklatıldı") + (t.by ? " · " + t.by : "");
+    const b = $("#rt-go");
+    if (b) b.textContent = t.running ? "Duraklat" : "Başlat";
+    const w = $("#rt");
+    if (w) {
+      w.classList.toggle("run", !!t.running);
+      w.classList.toggle("brk", t.mode === "brk");
+    }
+    const total = ((t.mode === "brk" ? t.brk : t.len) || DB.d.focus.focus) * 60;
+    const bar = $("#rt-bar");
+    if (bar) bar.style.width = Math.max(0, Math.min(100, 100 - left / total * 100)) + "%";
+  },
+  paintChat() {
+    const box = $("#rc-log");
+    if (!box) return;
+    const near = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+    box.innerHTML = this.msgs.length ? this.msgs.map((m) => {
+      const mine = m.user_id === Cloud.uid;
+      const t = new Date(m.created_at);
+      return '<div class="msg'.concat(mine ? " mine" : "", '"><p class="m-who">').concat(esc(mine ? "Sen" : m.p && m.p.name || "Biri"), "<span>").concat(pad(t.getHours()), ":").concat(pad(t.getMinutes()), "</span>").concat(mine && !this.mod ? "" : '<button class="m-opt" data-act="rm-msg" data-id="'.concat(m.id, '" aria-label="Mesaj seçenekleri">').concat(I.dots, "</button>"), '</p><p class="m-body">').concat(esc(m.body), "</p></div>");
+    }).join("") : '<p class="hint center">Henüz mesaj yok. Selam ver ya da bir soru sor.</p>';
+    if (near || true) box.scrollTop = box.scrollHeight;
+  },
+  paintCtl() {
+    const m = $("#rc-mic"), c = $("#rc-cam"), ch = $("#rc-chat");
+    if (m) {
+      m.classList.toggle("on", this.mic);
+      m.innerHTML = (this.mic ? I.mic : I.micOff) + "<span>".concat(this.mic ? "Mikrofon açık" : "Mikrofon", "</span>");
+      m.setAttribute("aria-pressed", this.mic);
+    }
+    if (c) {
+      c.classList.toggle("on", this.cam);
+      c.innerHTML = (this.cam ? I.cam : I.camOff) + "<span>".concat(this.cam ? "Kamera açık" : "Kamera", "</span>");
+      c.setAttribute("aria-pressed", this.cam);
+    }
+    if (ch) {
+      ch.classList.toggle("on", this.tab === "chat");
+      ch.innerHTML = I.chat + "<span>".concat(this.tab === "chat" ? "Görüntü" : "Sohbet", "</span>") + (this.unread ? '<b class="badge-n">'.concat(this.unread, "</b>") : "");
+    }
+    const r = $("#room");
+    if (r) r.dataset.tab = this.tab;
+    roomMiniPaint();
+  }
+};
+function roomView() {
+  const id = route.arg;
+  if (Room.id !== id) {
+    Room.enter(id);
+    return '<div class="progress"><span class="spinner" aria-hidden="true"></span><span>Odaya giriliyor…</span></div>';
+  }
+  if (!Room.room) return '<div class="progress"><span class="spinner" aria-hidden="true"></span><span>Odaya giriliyor…</span></div>';
+  const r = Room.room;
+  return '<div id="room" class="room" data-tab="'.concat(Room.tab, '">\n    <header class="room-top">\n      <button class="icon-btn" data-act="rm-away" aria-label="Geri dön (odada kalırsın)" title="Geri dön; odadan çıkmazsın, sesler devam eder">').concat(I.back, '</button>\n      <div class="rt-b"><h1>').concat(esc(r.name), '</h1><p class="hint"><span id="rm-count">1 kişi</span> · <button class="code-chip doing" data-act="rm-doing">').concat(esc(roomDoing() || "Ne çalışıyorsun?"), "</button>").concat(r.code ? ' · kod <button class="code-chip" data-act="rm-share">'.concat(esc(r.code), "</button>") : "", '<span id="rm-status"></span></p></div>\n      <button class="icon-btn" data-act="rm-menu" aria-label="Oda seçenekleri">').concat(I.dots, '</button>\n    </header>\n    <section class="rt" id="rt">\n      <div class="rt-l"><p class="rt-time" id="rt-time" role="timer">--:--</p><p class="rt-mode" id="rt-mode"></p></div>\n      <div class="rt-c"><button class="btn primary" data-act="rt-go" id="rt-go">Başlat</button><button class="btn sm" data-act="rt-set">Süre</button></div>\n      <div class="rt-track" aria-hidden="true"><span id="rt-bar"></span></div>\n    </section>\n    <div class="room-main">\n      <div class="room-grid" id="rg" data-n="1"></div>\n      <aside class="room-chat" aria-label="Sohbet">\n        <div class="rc-log" id="rc-log" aria-live="polite"></div>\n        <form class="rc-form" id="rc-form"><input id="rc-in" class="input" maxlength="500" placeholder="Mesaj yaz" autocomplete="off" enterkeyhint="send"><button class="btn primary" aria-label="Gönder">').concat(I.send, '</button></form>\n      </aside>\n    </div>\n    <nav class="room-ctl" aria-label="Oda kontrolleri">\n      <button class="rc-b" id="rc-mic" data-act="rc-mic" aria-pressed="false"></button>\n      <button class="rc-b" id="rc-cam" data-act="rc-cam" aria-pressed="false"></button>\n      <button class="rc-b chat-t" id="rc-chat" data-act="rc-chat"></button>\n      <button class="rc-b leave" data-act="rm-leave">').concat(I.leave, "<span>Çık</span></button>\n    </nav>\n  </div>");
+}
+roomView.after = () => {
+  Room.paintGrid();
+  Room.paintTimer();
+  Room.paintChat();
+  Room.paintCtl();
+};
+function roomNewSheet(instPre) {
+  const sch = Cloud.school;
+  const box = openSheet("Oda aç", '\n    <label class="f-h" for="rn-n">Odanın adı</label>\n    <input id="rn-n" class="input" maxlength="60" placeholder="Örn. Akşam matematik" autocomplete="off" autofocus>\n    <p class="f-h">Kimler girebilsin?</p>\n    <div class="opts">\n      '.concat(sch.map((m) => '<label class="opt"><input type="radio" name="rn-k" value="'.concat(m.institution_id, '"').concat(instPre === m.institution_id || !instPre && sch[0] === m ? " checked" : "", "><span><strong>").concat(esc(m.inst ? m.inst.name : "Dershane"), "</strong><span>").concat(m.role === "student" ? m.cls ? esc(m.cls.name) + " sınıfındakiler" : "Dershanedekiler" : "Seçtiğin sınıf ya da bütün dershane", "</span></span></label>")).join(""), '\n      <label class="opt"><input type="radio" name="rn-k" value=""').concat(!sch.length ? " checked" : "", '><span><strong>Kodu bilen arkadaşlarım</strong><span>Oda açılınca 6 haneli bir kod verilir; sadece kodu paylaştıkların girer.</span></span></label>\n    </div>\n    <div id="rn-cls"></div>\n    <p class="err" id="rn-e" role="alert"></p>\n    <div class="row"><button class="btn primary" id="rn-go">Odayı aç</button></div>'));
+  const paintCls = async () => {
+    const k = (box.querySelector('input[name="rn-k"]:checked') || {}).value, el = $("#rn-cls", box);
+    if (!k || !Cloud.isStaff(k)) {
+      el.innerHTML = "";
+      return;
+    }
+    if (!SC.data[k]) await scLoad(k);
+    const D = SC.data[k];
+    if (!D) return;
+    el.innerHTML = '<label class="f-h" for="rn-c">Sınıf</label><select id="rn-c"><option value="">Bütün dershane</option>'.concat(D.classes.map((c) => '<option value="'.concat(c.id, '">').concat(esc(c.name), "</option>")).join(""), "</select>");
+  };
+  box.addEventListener("change", (e) => {
+    if (e.target.name === "rn-k") paintCls();
+  });
+  paintCls();
+  $("#rn-go", box).addEventListener("click", async () => {
+    const n = $("#rn-n", box).value.trim(), k = (box.querySelector('input[name="rn-k"]:checked') || {}).value || null;
+    if (!n) {
+      $("#rn-e", box).textContent = "Odaya bir ad ver.";
+      return;
+    }
+    const c = $("#rn-c", box);
+    $("#rn-go", box).disabled = true;
+    try {
+      const r = await Cloud.rpc("create_room", { p_name: n, p_inst: k, p_class: c && c.value ? c.value : null });
+      RL.list = null;
+      closeSheet();
+      go("#/oda/" + r.id);
+      if (r.code) setTimeout(() => toast("Oda kodu: " + r.code + ". Arkadaşlarına gönder."), 600);
+    } catch (e) {
+      $("#rn-go", box).disabled = false;
+      $("#rn-e", box).textContent = e.message;
+    }
+  });
+}
+function reportSheet(uid, msgId) {
+  const who = (Room.present[uid] || {}).name || ((Room.msgs.find((m) => m.user_id === uid) || {}).p || {}).name || "Bu kişi";
+  const box = openSheet("Şikâyet et", "<p>".concat(esc(who), ' hakkında ne oldu?</p>\n    <div class="opts">').concat(["Hakaret ya da zorbalık", "Uygunsuz görüntü ya da içerik", "Kişisel bilgi istedi", "Sürekli rahatsız ediyor", "Başka bir şey"].map((t, i) => '<label class="opt"><input type="radio" name="rp" value="'.concat(t, '"').concat(i === 0 ? " checked" : "", "><span><strong>").concat(t, "</strong></span></label>")).join(""), '</div>\n    <textarea id="rp-t" rows="2" maxlength="250" placeholder="İstersen kısaca anlat"></textarea>\n    <div class="row"><button class="btn primary" id="rp-go">Gönder</button></div>\n    <p class="hint">Şikâyetin ').concat(Room.room && Room.room.kind === "class" ? "dershanendeki hocalara" : "kayda", " iletilir. Tehlikedeysen ya da biri seni tehdit ediyorsa bir yetişkine ve gerekirse 112'ye haber ver.</p>"));
+  $("#rp-go", box).addEventListener("click", async () => {
+    const reason = ((box.querySelector('input[name="rp"]:checked') || {}).value || "") + ($("#rp-t", box).value.trim() ? ": " + $("#rp-t", box).value.trim() : "");
+    const { error } = await Cloud.sb.from("reports").insert({ room_id: Room.id, reporter: Cloud.uid, reported: uid, message_id: msgId || null, reason: reason.slice(0, 300) });
+    closeSheet();
+    toast(error ? "Şikâyet gönderilemedi." : "Şikâyetin alındı. İstersen kişiyi sessize alabilir ya da odadan çıkabilirsin.");
+  });
+}
+Object.assign(ACT, {
+  "rooms-reload": () => {
+    RL.list = null;
+    roomsLoad(true);
+    render();
+  },
+  "room-new": (el) => roomNewSheet(el.dataset.inst),
+  "room-code": () => {
+    const box = openSheet("Kodla katıl", '<p class="hint">Arkadaşının gönderdiği 6 haneli oda kodunu yaz.</p>\n      <input id="rj-c" class="input code-in" maxlength="6" placeholder="Örn. FJ8AQQ" autocomplete="off" autocapitalize="characters" autofocus>\n      <p class="err" id="rj-e" role="alert"></p><div class="row"><button class="btn primary" id="rj-go">Katıl</button></div>');
+    const run = async () => {
+      const code = $("#rj-c", box).value.trim();
+      if (code.length < 6) return;
+      try {
+        const id = await Cloud.rpc("join_room", { p_code: code });
+        closeSheet();
+        go("#/oda/" + id);
+      } catch (e) {
+        $("#rj-e", box).textContent = e.message;
+      }
+    };
+    $("#rj-go", box).addEventListener("click", run);
+    $("#rj-c", box).addEventListener("keydown", (e) => {
+      if (e.key === "Enter") run();
+    });
+  },
+  "rm-leave": () => {
+    Room.leave();
+    go("#/odalar");
+  },
+  "rm-away": () => {
+    const h = ui.prevHash;
+    go(h && !/#\/oda\//.test(h) && h !== "#/" ? h : "#/odalar");
+  },
+  "rmini-mic": () => ACT["rc-mic"] && ACT["rc-mic"](),
+  "rc-mic": () => Room.setMedia("mic", !Room.mic),
+  "rc-cam": () => Room.setMedia("cam", !Room.cam),
+  "rc-chat": () => {
+    Room.tab = Room.tab === "chat" ? "grid" : "chat";
+    if (Room.tab === "chat") Room.unread = 0;
+    Room.paintCtl();
+    Room.paintChat();
+    if (Room.tab === "chat") {
+      const i = $("#rc-in");
+      if (i) i.focus({ preventScroll: true });
+    }
+  },
+  "rt-go": () => Room.timerGo(),
+  "rt-set": () => {
+    const box = openSheet("Ortak sayaç", '<p class="hint">Değişiklik odadaki herkesin sayacını değiştirir.</p>\n      <div class="opts">'.concat([[25, 5], [50, 10], [40, 10], [90, 15]].map(([a, b]) => '<button class="opt" data-a="'.concat(a, '" data-b="').concat(b, '"><span><strong>').concat(a, " dk odak, ").concat(b, " dk mola</strong></span></button>")).join(""), '</div>\n      <div class="row"><button class="btn" id="rs-reset">Sayacı sıfırla</button></div>'));
+    box.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-a]");
+      if (b) {
+        Room.timerSet(Number(b.dataset.a), Number(b.dataset.b));
+        closeSheet();
+      }
+    });
+    $("#rs-reset", box).addEventListener("click", () => {
+      Room.timerReset();
+      closeSheet();
+    });
+  },
+  "rm-share": async () => {
+    const r = Room.room;
+    if (!r || !r.code) return;
+    const text = "Ders Özetim'de birlikte çalışalım. Oda kodu: ".concat(r.code, "\n").concat(location.origin).concat(location.pathname);
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Ders Özetim oda kodu", text });
+        return;
+      }
+    } catch (e) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(r.code);
+      toast("Kod kopyalandı: " + r.code);
+    } catch (e) {
+      toast("Oda kodu: " + r.code);
+    }
+  },
+  "rm-menu": () => {
+    const r = Room.room;
+    if (!r) return;
+    const box = openSheet(r.name, '<ul class="menu">\n      '.concat(r.code ? '<li><button data-k="share"><span>Kodu paylaş</span><span class="mv">' + esc(r.code) + "</span></button></li>" : "", "\n      ").concat(Room.cam ? '<li><button data-k="flip"><span>Kamerayı çevir</span></button></li>' : "", "\n      ").concat(Room.mod ? '<li><button data-k="close" class="danger"><span>Odayı herkes için kapat</span></button></li>' : "", '\n      <li><button data-k="leave"><span>Odadan çık</span></button></li></ul>\n      <p class="hint">Ses ve görüntü kaydedilmez. Sohbet mesajları oda açık kaldıkça odadakilere görünür.</p>'));
+    box.addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-k]");
+      if (!b) return;
+      const k = b.dataset.k;
+      closeSheet();
+      if (k === "share") ACT["rm-share"]();
+      if (k === "flip") {
+        Room.front = !Room.front;
+        await Room.setMedia("cam", true);
+      }
+      if (k === "leave") ACT["rm-leave"]();
+      if (k === "close") {
+        const { error } = await Cloud.sb.from("rooms").update({ closed: true }).eq("id", Room.id);
+        if (error) {
+          toast("Kapatılamadı.");
+          return;
+        }
+        if (Room.ch) Room.ch.send({ type: "broadcast", event: "closed", payload: {} });
+        Room.leave();
+        go("#/odalar");
+        toast("Oda kapatıldı");
+      }
+    });
+  },
+  "rm-who": (el) => {
+    const u = el.dataset.u, p = Room.present[u] || {};
+    const box = openSheet(p.name || "Kişi", "".concat(whoTag(p) ? '<p class="hint">'.concat(esc(whoTag(p)), "</p>") : "", '<ul class="menu">\n      <li><button data-k="mute"><span>').concat(Room.muted.has(u) ? "Sesini aç" : "Sessize al", '</span><span class="mv">Sadece senin için</span></button></li>\n      <li><button data-k="report"><span>Şikâyet et</span></button></li>\n      ').concat(Room.mod ? '<li><button data-k="kick" class="danger"><span>Odadan çıkar</span><span class="mv">Bir daha giremez</span></button></li>' : "", "</ul>"));
+    box.addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-k]");
+      if (!b) return;
+      const k = b.dataset.k;
+      closeSheet();
+      if (k === "mute") {
+        Room.muted.has(u) ? Room.muted.delete(u) : Room.muted.add(u);
+        Room.paintTile(u);
+        Room.syncAudio();
+      }
+      if (k === "report") reportSheet(u);
+      if (k === "kick") {
+        try {
+          await Cloud.rpc("kick_from_room", { p_room: Room.id, p_user: u });
+          if (Room.ch) Room.ch.send({ type: "broadcast", event: "kick", payload: { uid: u } });
+          Room.dropPeer(u);
+          toast((p.name || "Kişi") + " odadan çıkarıldı");
+        } catch (err) {
+          toast(err.message);
+        }
+      }
+    });
+  },
+  "rm-msg": (el) => {
+    const id = Number(el.dataset.id), m = Room.msgs.find((x) => x.id === id);
+    if (!m) return;
+    const mine = m.user_id === Cloud.uid;
+    const box = openSheet("Mesaj", '<p class="m-body quote">'.concat(esc(m.body), '</p><ul class="menu">\n      ').concat(!mine ? '<li><button data-k="report"><span>Şikâyet et</span></button></li>' : "", "\n      ").concat(mine || Room.mod ? '<li><button data-k="del" class="danger"><span>Mesajı sil</span></button></li>' : "", "\n      ").concat(!mine && Room.mod ? '<li><button data-k="kick" class="danger"><span>Yazanı odadan çıkar</span></button></li>' : "", "</ul>"));
+    box.addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-k]");
+      if (!b) return;
+      const k = b.dataset.k;
+      closeSheet();
+      if (k === "report") reportSheet(m.user_id, m.id);
+      if (k === "del") {
+        const { error } = await Cloud.sb.from("messages").delete().eq("id", id);
+        if (!error) {
+          Room.msgs = Room.msgs.filter((x) => x.id !== id);
+          Room.paintChat();
+        }
+      }
+      if (k === "kick") {
+        try {
+          await Cloud.rpc("kick_from_room", { p_room: Room.id, p_user: m.user_id });
+          if (Room.ch) Room.ch.send({ type: "broadcast", event: "kick", payload: { uid: m.user_id } });
+          toast("Kişi odadan çıkarıldı");
+        } catch (err) {
+          toast(err.message);
+        }
+      }
+    });
+  }
+});
+document.addEventListener("submit", async (e) => {
+  if (e.target.id !== "rc-form") return;
+  e.preventDefault();
+  const i = $("#rc-in");
+  const v = i.value;
+  if (!v.trim()) return;
+  i.value = "";
+  const ok = await Room.sendMsg(v);
+  if (ok === false) i.value = v;
+});
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && Room.id) Room.lockScreen();
+});
+window.addEventListener("pagehide", () => {
+  if (Room.id) Room.leave(true);
+});
+VIEWS.odalar = roomsView;
+VIEWS.oda = roomView;
+function roomDoing() {
+  const p = DB.d.profile;
+  if (p.roomDoing && p.roomDoingDay === dayKey()) return p.roomDoing.slice(0, 80);
+  const w = DB.week(thisWeek()), t = w && w.tasks.find((x) => x.day === todayIdx() && !x.done);
+  return t ? ((t.subject ? t.subject + ": " : "") + (t.topic || t.label || t.text)).slice(0, 80) : "";
+}
+function roomMusic() {
+  if (DB.d.profile.shareMusic === false) return null;
+  if (typeof Player !== "undefined" && Player.cur) return { k: Player.cur.kind, t: String(Player.cur.title || "").slice(0, 80) };
+  if (typeof SP !== "undefined" && SP.on && SP.now && SP.now.is_playing && SP.now.item) {
+    const it = SP.now.item, who = it.artists ? it.artists.map((a) => a.name).join(", ") : "";
+    return { k: "sp", t: (it.name + (who ? " · " + who : "")).slice(0, 80) };
+  }
+  return null;
+}
+function roomDoingSheet() {
+  const w = DB.week(thisWeek()), ts = w ? w.tasks.filter((x) => x.day === todayIdx()) : [], p = DB.d.profile;
+  const cur = roomDoing();
+  const box = openSheet("Şu an ne çalışıyorsun?", '<p class="hint">Odadakiler adının üstünde görür.</p>\n    '.concat(ts.length ? '<ul class="menu">'.concat(ts.map((t, i) => {
+    const v = ((t.subject ? t.subject + ": " : "") + (t.topic || t.label || t.text)).slice(0, 80);
+    return '<li><button data-v="'.concat(esc(v), '"><span>').concat(esc(v), "</span>").concat(v === cur ? '<span class="mv">seçili</span>' : t.done ? '<span class="mv">bitti</span>' : "", "</button></li>");
+  }).join(""), "</ul>") : "", '\n    <label class="f-h" for="rd-x">Kendin yaz</label>\n    <form class="m-form" id="rd-f"><input id="rd-x" class="input" maxlength="80" placeholder="Örn. TYT deneme, paragraf" value="').concat(esc(p.roomDoing && p.roomDoingDay === dayKey() ? p.roomDoing : ""), '" autocomplete="off"><button class="btn primary">Kaydet</button></form>\n    <label class="opt"><input type="checkbox" id="rd-m"').concat(p.shareMusic === false ? "" : " checked", "><span><strong>Dinlediğimi göster</strong><span>Spotify'da ya da burada çalan şarkı veya video adı odada görünür.</span></span></label>"));
+  const set = (v) => {
+    p.roomDoing = v;
+    p.roomDoingDay = dayKey();
+    DB.save();
+    closeSheet();
+    Room.retrack();
+    const c = $(".code-chip.doing");
+    if (c) c.textContent = roomDoing() || "Ne çalışıyorsun?";
+  };
+  box.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-v]");
+    if (b) set(b.dataset.v);
+  });
+  $("#rd-f", box).addEventListener("submit", (e) => {
+    e.preventDefault();
+    set($("#rd-x", box).value.trim());
+  });
+  $("#rd-m", box).addEventListener("change", (e) => {
+    p.shareMusic = e.target.checked;
+    DB.save();
+    Room.retrack();
+  });
+}
+ACT["rm-doing"] = () => roomDoingSheet();
+setInterval(() => {
+  if (Room.id && Room.ch) Room.retrack();
+}, 4e3);
+function roomMiniHTML() {
+  if (!Room.id || !Room.room || route.page === "oda") return "";
+  const n = 1 + Room.others().length;
+  return '<div class="rmini" id="rmini" role="status">\n    <span class="rmini-dot" aria-hidden="true"></span>\n    <a class="rmini-b" href="#/oda/'.concat(Room.id, '"><strong>').concat(esc(Room.room.name), '</strong><span id="rmini-n">').concat(n, ' kişi · odadasın</span></a>\n    <button class="icon-btn sm').concat(Room.mic ? " on" : "", '" data-act="rmini-mic" aria-pressed="').concat(Room.mic, '" aria-label="').concat(Room.mic ? "Mikrofonu kapat" : "Mikrofonu aç", '">').concat(Room.mic ? I.mic : I.micOff, '</button>\n    <a class="btn sm" href="#/oda/').concat(Room.id, '">Dön</a>\n    <button class="btn sm danger" data-act="rm-leave" aria-label="Odadan çık">Çık</button>\n  </div>');
+}
+function roomMiniPaint() {
+  const old = document.getElementById("rmini");
+  const html = roomMiniHTML();
+  if (!html) {
+    if (old) old.remove();
+    return;
+  }
+  const app = document.getElementById("app");
+  if (!app) return;
+  if (old) old.outerHTML = html;
+  else app.insertAdjacentHTML("afterbegin", html);
+}
+window.addEventListener("hashchange", (e) => {
+  if (/#\/oda\//.test(location.hash) && e.oldURL && !/#\/oda\//.test(e.oldURL)) {
+    const i = e.oldURL.indexOf("#");
+    ui.prevHash = i >= 0 ? e.oldURL.slice(i) : "";
+  }
+});

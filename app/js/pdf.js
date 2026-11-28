@@ -154,7 +154,7 @@ async function exportPdf(parts, filename, note){
   try {
     const art = ENV === 'artifact';
     await loadScript(art ? 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js' : 'vendor/html2canvas.min.js', 'html2canvas');
-    await loadScript(art ? 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js' : 'vendor/jspdf.umd.min.js', 'jspdf');
+    await loadScript(art ? 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js' : (window.__DO_LEGACY ? 'legacy/' : '') + 'vendor/jspdf.umd.min.js', 'jspdf');
     try { await document.fonts.ready; } catch(e){}
     window.scrollTo(0, 0);
     stage = document.createElement('div'); stage.className = 'pdf-stage';

@@ -38,7 +38,7 @@
         var C = window.DO_CONFIG || {}, sa = !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
         var cn = navigator.connection || {}, data = { m: D.m, errs: errs.slice(0, 5), now: Math.round(performance.now()), sa: sa,
           sw: !!(navigator.serviceWorker && navigator.serviceWorker.controller), on: navigator.onLine, net: cn.effectiveType || '',
-          scr: screen.width + 'x' + screen.height, page: (location.hash || '').split('/')[1] || '' };
+          scr: screen.width + 'x' + screen.height, lg: !!window.__DO_LEGACY, page: (location.hash || '').split('/')[1] || '' };
         if (extra) for (var k in extra) data[k] = extra[k];
         fetch((C.supabaseUrl || 'https://gwmetoexnklzdyzrvgdv.supabase.co') + '/rest/v1/client_logs', { method: 'POST', keepalive: true,
           headers: { apikey: C.supabaseKey || 'sb_publishable_jwY5M8lzep4mvJoqUQQbzQ_scsnOrDK', 'content-type': 'application/json', prefer: 'return=minimal' },
@@ -47,7 +47,11 @@
     } };
   D.mark('html');
   document.addEventListener('DOMContentLoaded', function(){ D.mark('dom'); });
-  function old(){ try { new Function('var a={};return a?.b??1'); return false; } catch(e){ return true; } }
+  function can(src){ try { new Function(src); return true; } catch(e){ return false; } }
+  // Uygulama ve Supabase bu yazımları kullanır. Tanımayan tarayıcı (iOS 14 ve öncesi, eski Android Chrome)
+  // app/legacy'deki çevrilmiş kopyayı yükler (denemek için adrese ?legacy=1); async bile bilmeyen tarayıcıya "çok eski" denir.
+  window.__DO_LEGACY = /[?&]legacy=1/.test(location.search) || !can('class A{#a(){return 1}b(){return this.#a()}};var x;x||=1;return ({}).b?.c??1');
+  function old(){ return !can('async function f(){await 0}'); }
   function show(kind){
     if (shown || window.__DO_READY || (kind === 'err' && window.__DO_OK)) return; shown = true;
     D.send('stuck', { why: kind });
@@ -80,7 +84,7 @@
     errs.push((e.message || 'dosya yüklenemedi') + (e.filename ? ' (' + String(e.filename).split('/').pop() + ':' + e.lineno + ')' : e.target && e.target.src ? ' (' + String(e.target.src).split('/').pop() + ')' : ''));
     setTimeout(function(){ show('err'); }, 2500);
   }, true);
-  if (old()) { document.addEventListener('DOMContentLoaded', function(){ show('old'); }); return; }
+  if (old()) { window.__DO_OLD = true; document.addEventListener('DOMContentLoaded', function(){ show('old'); }); return; }
   setTimeout(function(){ show('slow'); }, 12000);
   // yavaş açılış: 5 saniyeyi geçen açılışı kaydet; ayrıca her cihazdan sürüm başına bir örnek
   window.addEventListener('load', function(){ setTimeout(function(){
@@ -102,30 +106,17 @@
 <input type="file" id="file-xlsx-sc" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple hidden>
 <div class="toast-wrap"><div class="toast" id="toast" role="status" aria-live="polite"></div></div>
 <noscript><p style="padding:20px">Ders Özetim'in çalışması için JavaScript gerekir.</p></noscript>
-<script src="js/config.js"></script>
-<script src="vendor/supabase.min.js"></script>
-<script src="vendor/fflate.min.js"></script>
-<script src="js/core.js"></script>
-<script src="js/motivation.js"></script>
-<script src="js/ai.js"></script>
-<script src="js/pdf.js"></script>
-<script src="js/cloud.js"></script>
-<script src="js/app.js"></script>
-<script src="js/mascot.js"></script>
-<script src="js/school.js"></script>
-<script src="js/rooms.js"></script>
-<script src="js/spotify.js"></script>
-<script src="js/media.js"></script>
-<script src="js/admin.js"></script>
-<script src="js/notes.js"></script>
-<script src="js/install.js"></script>
-<script src="js/chat.js"></script>
-<script src="js/youtube.js"></script>
-<script src="js/plan.js"></script>
-<script src="js/lab.js"></script>
-<script src="js/sims-fizik.js"></script>
-<script src="js/sims-kimya.js"></script>
-<script src="js/sims-mat.js"></script>
-<script src="js/main.js"></script>
+<script>
+/* Dosyalar sırayla yüklenir. Eski tarayıcıda (bkz. açılış bekçisi) app/legacy'deki çevrilmiş kopyalar kullanılır. */
+(function(){
+  if (window.__DO_OLD) return;
+  var L = window.__DO_LEGACY, f = ['js/config.js', 'vendor/supabase.min.js', 'vendor/fflate.min.js', 'js/core.js', 'js/motivation.js', 'js/ai.js', 'js/pdf.js', 'js/cloud.js', 'js/app.js', 'js/mascot.js', 'js/school.js', 'js/rooms.js', 'js/spotify.js', 'js/media.js', 'js/admin.js', 'js/notes.js', 'js/install.js', 'js/chat.js', 'js/youtube.js', 'js/plan.js', 'js/lab.js', 'js/sims-fizik.js', 'js/sims-kimya.js', 'js/sims-mat.js', 'js/main.js'];
+  if (L) document.write('<script src="legacy/polyfill.js"><\/script>');
+  for (var i = 0; i < f.length; i++){
+    var p = f[i], src = L && (/^js\//.test(p) || p === 'vendor/supabase.min.js') && p !== 'js/config.js' ? 'legacy/' + p : p;
+    document.write('<script src="' + src + '"><\/script>');
+  }
+})();
+</script>
 </body>
 </html>
