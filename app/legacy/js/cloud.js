@@ -330,6 +330,7 @@ const Cloud = {
       if (error) throw error;
       this.pending = false;
       await this.pushProfile();
+      if (typeof pushWeekly === "function") pushWeekly();
     } catch (e) {
       this.pending = true;
     } finally {
@@ -370,7 +371,7 @@ const Cloud = {
   /* ---------- profil (sınıf arkadaşları ve hocalar adını görür) ---------- */
   profileRow() {
     const p = DB.d.profile, g = p.goal || {}, t = p.kind === "teacher";
-    return { name: (p.name || "").slice(0, 40), kind: t ? "teacher" : "student", branch: t ? String(p.branch || "").slice(0, 30) : "", grade: !t && GRADES.some((r) => r[0] === p.grade) ? p.grade : "", track: String(p.track || "SAY").toLowerCase(), goal: [g.school, g.dept].filter(Boolean).join(", ").slice(0, 80), palette: p.palette || "lavanta" };
+    return { name: (p.name || "").slice(0, 40), kind: t ? "teacher" : "student", branch: t ? String(p.branch || "").slice(0, 30) : "", grade: !t && GRADES.some((r) => r[0] === p.grade) ? p.grade : "", track: String(p.track || "SAY").toLowerCase(), goal: [g.school, g.dept].filter(Boolean).join(", ").slice(0, 80), palette: p.palette || "lavanta", rank_hidden: !!p.rankHidden };
   },
   async fetchProfile() {
     const { data, error } = await this.sb.from("profiles").select("*").eq("id", this.uid).maybeSingle();
@@ -383,7 +384,8 @@ const Cloud = {
   applyProfile(data) {
     this.profile = data || null;
     if (data) {
-      this.lastProfile = JSON.stringify({ name: data.name, kind: data.kind || "student", branch: data.branch || "", grade: data.grade || "", track: data.track, goal: data.goal, palette: data.palette });
+      this.lastProfile = JSON.stringify({ name: data.name, kind: data.kind || "student", branch: data.branch || "", grade: data.grade || "", track: data.track, goal: data.goal, palette: data.palette, rank_hidden: !!data.rank_hidden });
+      if (DB.d.profile.rankHidden == null && data.rank_hidden) DB.d.profile.rankHidden = true;
       if (!DB.d.profile.kind && DB.d.onboarded && data.kind) {
         DB.d.profile.kind = data.kind;
         if (data.kind === "teacher") DB.d.profile.grade = "";

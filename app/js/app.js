@@ -59,6 +59,7 @@ const TABS = [
   { id: 'program', label: 'Program', icon: I.cal },
   { id: 'odalar', label: 'Odalar', icon: I.rooms },
   { id: 'odak', label: 'Odak', icon: I.timer },
+  { id: 'ilerleme', label: 'İlerleme', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4M4 20h16"/><path d="m7 15 4-4 3 3 5-6"/></svg>' },
   { id: 'defter', label: 'Defter', icon: I.notebook },
   { id: 'kitaplik', label: 'Kitaplık', icon: I.book, rail: true },
   { id: 'asistan', label: 'Asistan', icon: I.spark, rail: true },
@@ -188,10 +189,12 @@ function todayView(){
       <span class="pill${st.today ? ' on' : ''}">${I.flame}<span><strong>${st.cur}</strong> günlük seri</span></span>
       <span class="pill${fm >= goalMin ? ' on' : ''}">${I.timer}<span><strong>${fm}</strong>/${goalMin} dk odak</span></span>
       ${wp ? `<a class="pill" href="#/program" data-act="to-overview">${I.cal}<span>Hafta <strong>%${wp.pct}</strong></span></a>` : ''}
+      ${typeof progressPill === 'function' ? progressPill() : ''}
     </div>
     ${noProg ? '' : `<p class="motto">${motto}</p>`}
   </section>
   ${mascotCard(noProg ? [Object.assign(document.createElement('textarea'), { innerHTML: motto }).value] : null)}
+  ${typeof pushBanner === 'function' ? pushBanner() : ''}
   ${ins}
   ${p.why ? `<aside class="why"><p class="why-h">Neden çalışıyorum?</p><p class="why-t">${esc(p.why)}</p></aside>` : ''}
   ${ins && !DB.d.profile.city ? '' : weatherNote()}
@@ -447,6 +450,7 @@ function profileView(){
   <ul class="menu">
     <li><button data-act="p-palette"><span>Tema rengi</span><span class="mv"><span class="sw-mini" style="--a:${paletteOf(p.palette).sw[0]}"></span>${esc(paletteOf(p.palette).name)}</span></button></li>
     <li><button data-act="p-theme"><span>Açık ya da koyu</span><span class="mv">${theme}</span></button></li>
+    ${ENV === 'web' && Cloud.uid ? `<li><button data-act="push-open"><span>Bildirimler</span><span class="mv">${typeof PUSH !== 'undefined' && PUSH.row ? (PUSH.row.remind_at ? 'Her gün ' + PUSH.row.remind_at : 'Açık') : 'Hatırlatma ve program haberi'}</span></button></li>` : ''}
     <li><button data-act="p-sound"><span>Sayaç sesi</span><span class="mv">${p.sound === false ? 'Kapalı' : 'Açık'}</span></button></li>
     <li><a href="#/asistan/ayar"><span>Yapay zekâ</span><span class="mv">${esc(AI.label())}</span></a></li>
     <li><a href="#/medya"><span>Müzik ve video</span><span class="mv">YouTube, Spotify</span></a></li>
@@ -467,7 +471,7 @@ function profileView(){
     <li><button data-act="sign-out"><span>Çıkış yap</span></button></li>
     <li><button data-act="acct-del" class="danger"><span>Hesabımı sil</span></button></li>
   </ul>
-  <p class="hint">Programın, işaretlerin ve özetlerin hesabına kaydedilir; telefonda, tablette ve bilgisayarda aynısını görürsün. İnternet yokken de çalışır, bağlanınca eşitlenir. Sınıf arkadaşların ve hocaların yalnızca adını, hedefini ve dershane programındaki ilerlemeni görür.</p>` : `<p class="hint">${ENV === 'artifact' ? (Sync.col ? 'Verilerin Claude hesabında, yalnızca sana görünür şekilde saklanıyor; telefonda ve tablette aynı programı görürsün.' : 'Verilerin bu cihazın tarayıcısında saklanıyor. Yedeği arada bir indir.') : 'Programın, işaretlerin ve özetlerin yalnızca bu cihazda saklanır; hiçbir sunucuya gönderilmez. Başka bir cihaza geçerken yedeği indirip orada geri yükle.'}</p>`}
+  <p class="hint">Programın, işaretlerin ve özetlerin hesabına kaydedilir; telefonda, tablette ve bilgisayarda aynısını görürsün. İnternet yokken de çalışır, bağlanınca eşitlenir. Dershanendeki hocaların adını, hedefini, programdaki ilerlemeni, deneme netlerini ve haftalık odak süreni görür. Sınıf ve oda arkadaşların yalnızca adını ve sıralamadaki haftalık odak süreni görür; sıralamayı İlerleme'den kapatabilirsin.</p>` : `<p class="hint">${ENV === 'artifact' ? (Sync.col ? 'Verilerin Claude hesabında, yalnızca sana görünür şekilde saklanıyor; telefonda ve tablette aynı programı görürsün.' : 'Verilerin bu cihazın tarayıcısında saklanıyor. Yedeği arada bir indir.') : 'Programın, işaretlerin ve özetlerin yalnızca bu cihazda saklanır; hiçbir sunucuya gönderilmez. Başka bir cihaza geçerken yedeği indirip orada geri yükle.'}</p>`}
   <section class="about">
     <h2>Hakkında</h2>
     <p><strong>Ders Özetim</strong>, Esat Taha Polat tarafından geliştirilen açık kaynaklı bir çalışma uygulamasıdır.</p>
@@ -1218,7 +1222,7 @@ document.addEventListener('change', e => {
   if (t.matches('input[data-done]')){
     const [wk, id] = t.dataset.done.split('|'); const task = DB.task(wk, id); if (!task) return;
     task.done = t.checked;
-    if (t.checked){ task.doneOn = dayKey(); bump(task.doneOn, 'tasks', 1); }
+    if (t.checked){ task.doneOn = dayKey(); bump(task.doneOn, 'tasks', 1); const mk = typeof mufAutoMark === 'function' && mufAutoMark(task); if (mk) setTimeout(() => toast(`Konu takibine eklendi: ${mk.name}`), 900); }
     else { bump(task.doneOn || dayKey(), 'tasks', -1); delete task.doneOn; }
     if (task.src === 'dershane' && task.pid) Cloud.queueProgress(task.pid);
     if (t.checked && wk === thisWeek() && task.day === todayIdx()){

@@ -7,7 +7,7 @@
  */
 'use strict';
 
-const APP = { name: 'Ders Özetim', author: 'Esat Taha Polat', repo: 'https://github.com/tahap0l/DersOzet', version: '3.12.3' };
+const APP = { name: 'Ders Özetim', author: 'Esat Taha Polat', repo: 'https://github.com/tahap0l/DersOzet', version: '3.13.0' };
 const ENV = window.DO_ENV || 'web'; // 'web': Cloudflare / GitHub sürümü, 'artifact': claude.ai yapıtı
 const CAP = { sample: null, downloads: null };
 
@@ -320,7 +320,7 @@ const DB = {
       focus: { focus: 25, brk: 5, long: 15 },
       timer: { mode: 'focus', left: 25 * 60, endAt: 0, running: false, rounds: 0, roundsDay: '' },
       sw: { running: false, startAt: 0, acc: 0 },
-      userSums: {},
+      userSums: {}, exams: [], topicsDone: {},
       ai: { engine: 'bulut', v2: true, model: 'Qwen3.5-2B-q4f16_1-MLC', ollamaUrl: 'http://localhost:11434', ollamaModel: '' },
       onboarded: false
     };
@@ -330,7 +330,7 @@ const DB = {
     const aiV2 = !!(d.ai && d.ai.v2);
     ['profile', 'focus', 'timer', 'sw', 'ai', 'stats'].forEach(k => { d[k] = Object.assign({}, base[k], d[k] || {}); });
     if (!aiV2){ if (d.ai.engine !== 'ollama' && ENV !== 'artifact') d.ai.engine = 'bulut'; d.ai.v2 = true; }
-    d.v = 4; d.weeks = d.weeks || {}; d.userSums = d.userSums || {}; d.stats.days = d.stats.days || {};
+    d.v = 4; d.weeks = d.weeks || {}; d.userSums = d.userSums || {}; d.exams = Array.isArray(d.exams) ? d.exams : []; d.topicsDone = d.topicsDone || {}; d.stats.days = d.stats.days || {};
     return d;
   },
   load(){

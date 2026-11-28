@@ -1,7 +1,11 @@
 /* Ders Özetim — Copyright (C) 2026 Esat Taha Polat — AGPL-3.0. Eski tarayıcılar için çevrilmiş kopya; kaynak app/js, üreten tools/build-legacy.sh */
 "use strict";
 const CH_PHOTO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.3-2h5.2l1.3 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5Z"/><circle cx="12" cy="12.5" r="3.5"/></svg>';
-const CH = { msgs: null, img: null, busy: false, ctrl: null, think: false };
+const CH = { msgs: null, img: null, busy: false, ctrl: null, think: false, photos: /* @__PURE__ */ new Map() };
+function chCanSave(i) {
+  const u = CH.msgs[i - 1];
+  return !!(Cloud.uid && u && u.role === "user" && (u.thumb || CH.photos.has(CH.msgs[i].at)));
+}
 const chKey = () => "dersozetim.chat." + (Cloud.uid || "yerel");
 function chLoad() {
   if (CH.msgs && CH.owner === chKey()) return;
@@ -140,7 +144,7 @@ function chSuggestions() {
 function chMsgHTML(m, i) {
   if (m.role === "user") return '<div class="ch-msg user">'.concat(m.thumb ? '<img class="ch-thumb" src="'.concat(m.thumb, '" alt="Gönderdiğin fotoğraf">') : m.hadImg ? '<span class="hint">[fotoğraf]</span>' : "").concat(m.text ? "<p>".concat(esc(m.text), "</p>") : "", "</div>");
   const body = m.err ? '<p class="err">'.concat(esc(m.err), "</p>").concat(m.retry ? '<button class="link sm" data-act="ch-retry">Tekrar dene</button>' : "") : m.text ? mdLite(m.text) : '<p class="ch-wait"><span class="spinner" aria-hidden="true"></span>'.concat(m.thinking ? "Düşünüyor…" : "Yazıyor…", "</p>");
-  return '<div class="ch-msg bot" data-i="'.concat(i, '"><div class="ch-av" aria-hidden="true">').concat(mascotSVG(m.pending ? "think" : "ok", 30), '</div><div class="ch-b">').concat(body).concat(!m.pending && m.text ? '<div class="ch-acts"><button class="link sm" data-act="ch-copy" data-i="'.concat(i, '">Kopyala</button></div>') : "", "</div></div>");
+  return '<div class="ch-msg bot" data-i="'.concat(i, '"><div class="ch-av" aria-hidden="true">').concat(mascotSVG(m.pending ? "think" : "ok", 30), '</div><div class="ch-b">').concat(body).concat(!m.pending && m.text ? '<div class="ch-acts"><button class="link sm" data-act="ch-copy" data-i="'.concat(i, '">Kopyala</button>').concat(chCanSave(i) ? m.saved ? '<span class="hint">Yanlış defterine eklendi</span>' : '<button class="link sm" data-act="ch-wrong" data-i="'.concat(i, '">Yanlış defterime ekle</button>') : "", "</div>") : "", "</div></div>");
 }
 function askHTML() {
   chLoad();
@@ -186,6 +190,7 @@ async function chSend(text) {
   CH.msgs.push({ role: "user", text, thumb: img ? img.thumb : "", at: Date.now() });
   const bot = { role: "assistant", text: "", pending: true, at: Date.now() };
   CH.msgs.push(bot);
+  if (img) CH.photos.set(bot.at, img.data);
   CH.img = null;
   const pic = $("#ch-pic");
   if (pic) {
@@ -318,6 +323,7 @@ Object.assign(ACT, {
     chSave();
     render();
   },
+  "ch-wrong": (el) => chToWrong(Number(el.dataset.i)),
   "ch-pic-x": () => {
     CH.img = null;
     const pic = $("#ch-pic");
@@ -343,5 +349,68 @@ Object.assign(ACT, {
     CH.msgs.splice(-2, 2);
     CH.img = q.img || null;
     chSend(q.text || "");
+  }
+});
+async function chToWrong(i) {
+  const bot = CH.msgs[i], u = CH.msgs[i - 1];
+  if (!bot || !u || !Cloud.uid || bot.saving) return;
+  bot.saving = true;
+  const data = CH.photos.get(bot.at) || u.thumb;
+  if (!data) {
+    bot.saving = false;
+    toast("Fotoğraf bulunamadı.");
+    return;
+  }
+  try {
+    const blob = await (await fetch(data)).blob();
+    const sol = texLite(bot.text).trim(), g = guessTask(sol.slice(0, 300) + " " + (u.text || ""));
+    const m = libraryMatch([{ text: sol.split("\n")[0].slice(0, 200), subject: g.subject }], libIndex()).tasks[0] || {};
+    const n = newNote("wrong", { title: "Mürek'in çözdüğü soru", subject: m.subject || g.subject || "", topic: m.topic || "", body: ("Mürek'in çözümü:\n" + sol).slice(0, 2e4), paper: "plain" });
+    const path = Cloud.uid + "/" + n.id + "-" + Date.now().toString(36) + ".jpg";
+    const { error } = await Cloud.sb.storage.from("notes").upload(path, blob, { contentType: "image/jpeg", upsert: true });
+    if (error) throw error;
+    n.image_path = path;
+    NT.urls[path] = { url: data, exp: Date.now() + 35e5 };
+    if (!NT.list) NT.list = (NT.readCache() || {}).list || [];
+    ntSave(n, true);
+    bot.saved = true;
+    chSave();
+    chPaintLog();
+    toast("Yanlış defterine eklendi. Yarın tekrar soracağım.");
+  } catch (e) {
+    toast("Eklenemedi. İnternet bağlantını kontrol et.");
+  }
+  bot.saving = false;
+}
+async function chQuickSolve(file) {
+  if (!file) return;
+  if (!Cloud.uid) {
+    toast("Fotoğraflı soru için hesabına giriş yap.");
+    return;
+  }
+  if (DB.d.ai.engine !== "bulut") {
+    DB.d.ai.engine = "bulut";
+    DB.save();
+  }
+  chLoad();
+  try {
+    CH.img = await chImage(file);
+  } catch (e) {
+    toast("Bu fotoğraf açılamadı. Başka bir fotoğraf dene.");
+    return;
+  }
+  CH.think = true;
+  go("#/asistan/sor");
+  setTimeout(() => {
+    const th = $("#ch-think");
+    if (th) th.checked = true;
+    chSend("");
+  }, 120);
+}
+document.addEventListener("change", (e) => {
+  if (e.target && e.target.id === "qs-file") {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = "";
+    chQuickSolve(f);
   }
 });

@@ -2,10 +2,10 @@
  * Çevrimdışı çalışma ve hızlı açılış. Uygulama dosyaları kurulumda bir kez indirilir ve sonra
  * doğrudan telefondan açılır; ağ beklenmez. Yeni sürüm yayımlarken VERSION'ı artır: yeni çalışan
  * dosyaları arka planda indirir, hazır olunca sayfa bir kez yenilenir. */
-const VERSION = 'dersozetim-3.12.3';
+const VERSION = 'dersozetim-3.13.0';
 const CORE = [
   './', 'manifest.webmanifest', 'css/app.css',
-  'js/config.js', 'js/core.js', 'js/motivation.js', 'js/ai.js', 'js/pdf.js', 'js/cloud.js', 'js/app.js', 'js/mascot.js', 'js/school.js', 'js/rooms.js', 'js/spotify.js', 'js/media.js', 'js/admin.js', 'js/notes.js', 'js/install.js', 'js/chat.js', 'js/youtube.js', 'js/plan.js', 'js/lab.js', 'js/sims-fizik.js', 'js/sims-kimya.js', 'js/sims-mat.js', 'js/main.js', 'data/library.json',
+  'js/config.js', 'js/core.js', 'js/motivation.js', 'js/ai.js', 'js/pdf.js', 'js/cloud.js', 'js/app.js', 'js/mascot.js', 'js/school.js', 'js/rooms.js', 'js/spotify.js', 'js/media.js', 'js/admin.js', 'js/notes.js', 'js/install.js', 'js/chat.js', 'js/youtube.js', 'js/mufredat.js', 'js/progress.js', 'js/push.js', 'js/plan.js', 'js/lab.js', 'js/sims-fizik.js', 'js/sims-kimya.js', 'js/sims-mat.js', 'js/main.js', 'data/library.json',
   'vendor/supabase.min.js', 'vendor/fflate.min.js',
   'fonts/fonts.css', 'fonts/nunito-latin-wght-normal.woff2', 'fonts/nunito-latin-ext-wght-normal.woff2', 'fonts/bricolage-grotesque-latin-wght-normal.woff2', 'fonts/bricolage-grotesque-latin-ext-wght-normal.woff2',
   'icons/icon-192.png', 'icons/favicon.png'
@@ -42,5 +42,21 @@ self.addEventListener('fetch', e => {
     const res = await net; if (res) return res;
     if (req.mode === 'navigate'){ const shell = await cache.match(base); if (shell) return shell; }
     return Response.error();
+  }));
+});
+
+/* telefon bildirimi: sunucudaki push fonksiyonu gönderir */
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch(x){ d = { body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Ders Özetim', { body: d.body || '', icon: 'icons/icon-192.png', badge: 'icons/favicon.png', tag: d.tag || 'ders-ozetim', data: { url: d.url || './#/bugun' } }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = new URL((e.notification.data && e.notification.data.url) || './', self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(ws => {
+    const w = ws.find(x => x.url.startsWith(self.registration.scope));
+    if (w){ w.focus(); return w.navigate ? w.navigate(url).catch(() => {}) : null; }
+    return self.clients.openWindow(url);
   }));
 });

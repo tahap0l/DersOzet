@@ -16,5 +16,7 @@ window.DO_CONFIG = {
   // Supabase'de Google sağlayıcısı açılınca true yap.
   googleLogin: false,
   // Spotify geliştirici panelindeki uygulamanın Client ID'si (gizli değildir). Boş bırakırsan Spotify bağlantısı görünmez.
-  spotifyClientId: '23f34cc2a19c4e0bb43c1a580462db92'
+  spotifyClientId: '23f34cc2a19c4e0bb43c1a580462db92',
+  // Telefon bildirimleri (Web Push) için VAPID açık anahtarı. Gizli eşi sunucuda (push fonksiyonu).
+  vapidPublic: 'BDYiLMfucCBUq0F7H7nURoKQQnHrXE3KsKHgfXM_x-NkKrx378kXN8Pdc_faTZ4WY4p0MDofjeF9_A-_fufQ_qs'
 };

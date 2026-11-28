@@ -7,7 +7,7 @@
  *
  * core.js: yardımcılar, Excel okuma, görev/konu eşleştirme, veri deposu, seri ve plan oluşturucu.
  */
-const APP = { name: "Ders Özetim", author: "Esat Taha Polat", repo: "https://github.com/tahap0l/DersOzet", version: "3.12.3" };
+const APP = { name: "Ders Özetim", author: "Esat Taha Polat", repo: "https://github.com/tahap0l/DersOzet", version: "3.13.0" };
 const ENV = window.DO_ENV || "web";
 const CAP = { sample: null, downloads: null };
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -437,6 +437,8 @@ const DB = {
       timer: { mode: "focus", left: 25 * 60, endAt: 0, running: false, rounds: 0, roundsDay: "" },
       sw: { running: false, startAt: 0, acc: 0 },
       userSums: {},
+      exams: [],
+      topicsDone: {},
       ai: { engine: "bulut", v2: true, model: "Qwen3.5-2B-q4f16_1-MLC", ollamaUrl: "http://localhost:11434", ollamaModel: "" },
       onboarded: false
     };
@@ -454,6 +456,8 @@ const DB = {
     d.v = 4;
     d.weeks = d.weeks || {};
     d.userSums = d.userSums || {};
+    d.exams = Array.isArray(d.exams) ? d.exams : [];
+    d.topicsDone = d.topicsDone || {};
     d.stats.days = d.stats.days || {};
     return d;
   },

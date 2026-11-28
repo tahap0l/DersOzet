@@ -16,7 +16,11 @@ Geliştiren: **Esat Taha Polat** ([@tahap0l](https://github.com/tahap0l))
 - **Program:** Koçunun gönderdiği Excel programını yükle (birden fazla hafta aynı anda), görevlerini kendin yaz ya da düzenle. Görevler konu kitaplığıyla otomatik eşleşir.
 - **Kişiye özel program:** Derslerdeki seviyeni, hafta içi ve hafta sonu boş zamanını, dershane günlerini ve deneme sayısını seç. Yanlış defterin ve son haftalarda bitirdiğin konular da hesaba katılır; yapay zekâ programı neden böyle kurduğunu da anlatır. Yapay zekâsız Hızlı plan da aynı bilgileri kullanır.
 - **Konu videoları:** Program hazırlanınca her konuya YouTube'dan yeni ve çok izlenen bir konu anlatımı eklenir (Shorts ve çok eski videolar elenir). Profil > YouTube hocaların'dan her ders için en fazla 3 kanal seçersen önce onların videoları gelir. Görevdeki "YouTube'da izle" düğmesi videoyu doğrudan açar, "Diğer videolar" o dersin ve konunun birkaç videosunu listeler (seçilen göreve kaydedilir); dershaneden gelen izleme görevlerinde "YouTube'da aç" videoyu bulup açar. Arama API anahtarsız çalışır (`functions/api/yt.js`).
-- **Soru sor:** Asistan'da Mürek'e yazıyla ya da sorunun fotoğrafını çekerek soru sor; çözüm adım adım, yazılırken ekrana akar.
+- **Soru sor:** Asistan'da Mürek'e yazıyla ya da sorunun fotoğrafını çekerek soru sor; çözüm adım adım, yazılırken ekrana akar. Bugün sayfasındaki "Soru çöz" fotoğrafı seçtirip doğrudan çözdürür. Fotoğraflı sorunun çözümü tek dokunuşla yanlış defterine eklenir ve aralıklı tekrara girer.
+- **İlerleme:** Denemeler (TYT, AYT Sayısal/EA/Sözel, YDT netleri ders ders; gelişim grafiği, öncekine göre fark, "netin son 3 denemedir düşüyor" uyarısı), konu takibi (TYT-AYT-YDT müfredatı, alana göre; programdaki görev bitince ilgili konu kendiliğinden işaretlenir) ve haftalık sıralama (aynı sınıftaki ve aynı arkadaş odasındaki öğrencilerle odak süresi; istenirse kapatılır).
+- **Haftanı paylaş:** Haftanın odak süresi, görevleri, serisi ve son deneme neti Instagram hikâyesi boyutunda (1080×1920) görsel olur; telefonda doğrudan paylaşılır.
+- **Bildirimler:** Seçilen saatte günlük hatırlatma (kalan görevler, tekrar bekleyen yanlışlar ya da seri) ve hoca yeni program gönderince haber. iPhone'da ana ekrana eklenmiş uygulamada çalışır (iOS 16.4+).
+- **Hoca raporu:** Sınıf sayfasında öğrencilerin son TYT/AYT netleri ve haftalık odak süresi; öğrenciye dokununca haftalık rapor (program, odak, aktif gün, seri, denemeler), veliye WhatsApp'tan paylaşılabilir.
 - **Kitaplık:** Hazır YKS konu özetleri (konu anlatımı, formüller, kavramlar, sık yapılan hatalar, çözümlü sorular). Türkçe karakter yazmadan arayabilirsin.
 - **Odak:** Odak ve mola sayacı (25/5 ya da kendi sürelerin), kronometre, son 7 günün odak grafiği. Sayaç ve kronometre hesapta durur; telefonda ve bilgisayarda aynı anda akar.
 - **Laboratuvar:** Konulara bağlı 20 dokunmatik deney ve animasyon. Fizik (kaldırma kuvveti, sıvı, katı ve gaz basıncı, enerjinin korunumu, ısı alışverişi, yoğunluk), kimya (maddenin halleri, iyonik ve kovalent bağ, molekül şekilleri, periyodik sistem, zayıf etkileşimler), biyoloji (enzimler), matematik (mutlak değer, EBOB-EKOK, denklem terazisi, kesirler, asal sayı kalburu) ve geometri (Pisagor ve Öklid, üçgende açılar ve açıortay). Konu özetinin başında ve Mürek'in günlük mesajında o konunun deneyi çıkar.
@@ -41,7 +45,7 @@ Küçük modeller hata yapabilir. Yapay zekâyla hazırlanan özetler uygulamada
 
 ## Gizlilik
 
-Programın ve özetlerin yalnızca senin hesabında durur. Sınıf arkadaşların ve hocaların yalnızca adını, hedefini ve hocanın gönderdiği programdaki ilerlemeni görür. Her tablo satır düzeyi güvenlik kurallarıyla korunur (`supabase/migrations`). Ses ve görüntü kaydedilmez; tarayıcılar arasında doğrudan gider. Hava durumu için sadece seçtiğin şehrin koordinatları [Open-Meteo](https://open-meteo.com)'ya gönderilir. Profil > Hesabımı sil ile her şey kalıcı olarak silinir.
+Programın ve özetlerin yalnızca senin hesabında durur. Dershanendeki hocaların adını, hedefini, gönderdikleri programdaki ilerlemeni, deneme netlerini ve haftalık odak süreni görür. Sınıf ve oda arkadaşların yalnızca adını ve sıralamadaki haftalık odak süreni görür (İlerleme > Sıralama'dan kapatılabilir). Her tablo satır düzeyi güvenlik kurallarıyla korunur (`supabase/migrations`). Ses ve görüntü kaydedilmez; tarayıcılar arasında doğrudan gider. Hava durumu için sadece seçtiğin şehrin koordinatları [Open-Meteo](https://open-meteo.com)'ya gönderilir. Profil > Hesabımı sil ile her şey kalıcı olarak silinir.
 
 ## Sunucu (Supabase)
 
@@ -51,6 +55,7 @@ Hesaplar, dershaneler, odalar ve sohbet [Supabase](https://supabase.com) üzerin
 2. `supabase/functions/turn` fonksiyonunu yayımla. Mobil veride görüntülü bağlantı için Cloudflare Realtime'da bir TURN anahtarı oluşturup `CF_TURN_KEY_ID` ve `CF_TURN_KEY_TOKEN` gizli değerlerini ekle (isteğe bağlı).
 3. Authentication > URL Configuration'da sitenin adresini ve `https://senin-adresin/**` yönlendirme adresini ekle; Google ile giriş için Google sağlayıcısını aç.
 4. `app/js/config.js` içine projenin adresini ve publishable anahtarını yaz.
+5. Bildirimler için: `npx web-push generate-vapid-keys` ile anahtar çifti üret; açık anahtarı `config.js`'teki `vapidPublic`'e yaz, ikisini ve rastgele bir zamanlayıcı anahtarını Vault'a koy (`0012_push_cron.sql`'in başındaki komutlar), `supabase/functions/push` fonksiyonunu JWT doğrulaması kapalı yayımla.
 
 ## Yayımlama (Cloudflare Pages)
 
@@ -61,6 +66,8 @@ Derleme adımı yoktur; dosyalar olduğu gibi yayımlanır.
 3. **Save and Deploy**. Her `git push` sonrasında site kendiliğinden güncellenir.
 
 Ana adres tanıtım sitesini, `/app/` uygulamayı açar. `_headers` güvenlik ve önbellek başlıklarını, `404.html` bulunamayan sayfaları ayarlar. Yeni sürüm yayımlarken `app/sw.js` içindeki `VERSION` değerini artır ki kullanıcıların uygulaması güncellensin. ÖSYM 2027 YKS tarihini açıklayınca `site/site.js` ve `app/js/core.js` içindeki tahmini tarihi güncelle.
+
+Eski telefonlar (iOS 12-14, güncellenmemiş Android) için uygulamanın çevrilmiş bir kopyası `app/legacy/`'dedir; uygulama dosyalarını değiştirince `sh tools/build-legacy.sh` çalıştır. Açılmayan bir cihazda `/kontrol.html` sebebini gösterir.
 
 Uygulama bir PWA olduğu için [PWABuilder](https://www.pwabuilder.com) ile Microsoft Store ve Android paketleri hazırlanabilir.
 
@@ -97,6 +104,10 @@ app/js/app.js              arayüz ve sayfalar
 app/js/ai.js               sunucu yapay zekâsı, WebLLM, Ollama ve Claude bağlantısı, istemler
 app/js/chat.js             Asistan > Soru sor (yazılı ve fotoğraflı soru)
 app/js/plan.js             kişiye özel haftalık program
+app/js/progress.js         İlerleme: denemeler, konu takibi, sıralama, paylaşım kartı, hoca raporu
+app/js/mufredat.js         TYT-AYT-YDT konu listesi
+app/js/push.js             bildirim aboneliği
+app/legacy/                eski tarayıcılar için çevrilmiş kopya (tools/build-legacy.sh üretir)
 functions/api/ai.js        Cloudflare Workers AI'a giden sunucu fonksiyonu
 functions/api/yt.js        YouTube'da konu videosu arayan sunucu fonksiyonu
 app/js/youtube.js          görevlere video, hoca seçimi
@@ -105,7 +116,7 @@ app/js/pdf.js              PDF oluşturma
 app/data/library.json      konu özetleri kitaplığı
 app/fonts/                 Bricolage Grotesque ve Nunito (SIL OFL 1.1)
 app/vendor/                supabase-js, fflate, html2canvas, jsPDF
-supabase/                  veritabanı şeması, güvenlik kuralları ve TURN fonksiyonu
+supabase/                  veritabanı şeması, güvenlik kuralları, TURN ve bildirim (push) fonksiyonları
 app/sw.js, app/manifest.webmanifest, app/icons/   çevrimdışı çalışma ve uygulama olarak yükleme
 ```
 

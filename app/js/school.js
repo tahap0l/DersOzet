@@ -120,6 +120,7 @@ function classView(m, D, cid){
         <button class="icon-btn ghost" data-act="sc-stu" data-u="${s.user_id}" aria-label="Öğrenci seçenekleri">${I.dots}</button></li>`; }).join('')}</ul>`
       : `<p class="hint">Henüz öğrenci yok. Sınıf kodunu paylaş.</p>`}
   </section>
+  ${typeof classExamsBlock === 'function' ? classExamsBlock(inst, cid, students) : ''}
   <section class="block">
     <div class="block-head"><h2>Gönderilen programlar</h2></div>
     ${progs.length ? `<ul class="plist">${progs.map(p => { const who = p.student_id ? [p.student_id] : students.map(s => s.user_id); const tot = (p.tasks || []).length * who.length; const dn = who.reduce((a, u) => a + doneCount(p, u), 0);
@@ -418,6 +419,7 @@ Object.assign(ACT, {
     const mine = D.programs.filter(p => p.student_id === s.user_id).sort((a, b) => String(b.week_start).localeCompare(String(a.week_start)));
     const u = s.user_id;
     const box = openSheet(s.p ? s.p.name : 'Öğrenci', `<p class="hint">${esc(whoTag(s.p) || '')}${s.p && s.p.goal ? ' · ' + esc(s.p.goal) + ' hedefliyor' : ''}</p>
+      <div class="row"><button class="btn" data-act="sc-report" data-u="${u}">${I.chart}Haftalık rapor</button></div>
       <h3 class="f-h">Bu öğrenciye özel program</h3>
       <div class="row"><button class="btn primary" data-act="sc-write" data-c="${cid}" data-u="${u}">Program yaz</button><button class="btn" data-act="sc-up" data-c="${cid}" data-u="${u}">Excel'den yükle</button>
         ${mine.length ? `<button class="btn" data-act="sc-last" data-c="${cid}" data-u="${u}">Son programdan başla</button>` : ''}<button class="btn" data-act="sc-mine" data-c="${cid}" data-u="${u}">Kendi programımdan</button></div>

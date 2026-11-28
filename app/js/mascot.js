@@ -91,6 +91,7 @@ function mascotCard(say){
         ${qs ? `<button class="mc-btn" data-act="m-quiz">Beni sına</button>` : ''}
         ${wd ? `<button class="mc-btn" data-act="m-wrongs">Yanlışları tekrar et</button>` : ''}
         ${sim ? `<a class="mc-btn" href="#/lab/${sim[1].id}">Deneyi aç</a>` : ''}
+        ${Cloud.uid ? `<label class="mc-btn" for="qs-file">Soru çöz</label><input type="file" id="qs-file" accept="image/*" hidden>` : ''}
         <button class="mc-btn" data-act="m-chat">Sor</button>
       </div>
     </div>
