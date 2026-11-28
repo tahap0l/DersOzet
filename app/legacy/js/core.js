@@ -7,7 +7,7 @@
  *
  * core.js: yardımcılar, Excel okuma, görev/konu eşleştirme, veri deposu, seri ve plan oluşturucu.
  */
-const APP = { name: "Ders Özetim", author: "Esat Taha Polat", repo: "https://github.com/tahap0l/DersOzet", version: "3.12.2" };
+const APP = { name: "Ders Özetim", author: "Esat Taha Polat", repo: "https://github.com/tahap0l/DersOzet", version: "3.12.3" };
 const ENV = window.DO_ENV || "web";
 const CAP = { sample: null, downloads: null };
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);

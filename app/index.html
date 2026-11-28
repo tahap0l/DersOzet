@@ -86,6 +86,8 @@
   }, true);
   if (old()) { window.__DO_OLD = true; document.addEventListener('DOMContentLoaded', function(){ show('old'); }); return; }
   setTimeout(function(){ show('slow'); }, 12000);
+  // açılmadan sayfadan çıkan (beyaz ekranda bekleyip kapatan) cihazı da kaydet
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden' && !window.__DO_READY) D.send('left', { app: !!document.querySelector('#app .hint') }); });
   // yavaş açılış: 5 saniyeyi geçen açılışı kaydet; ayrıca her cihazdan sürüm başına bir örnek
   window.addEventListener('load', function(){ setTimeout(function(){
     var r = D.m.ready, v = ''; try { v = localStorage.getItem('dersozetim.diag') || ''; } catch(e){}

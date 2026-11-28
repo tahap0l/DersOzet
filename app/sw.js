@@ -2,7 +2,7 @@
  * Çevrimdışı çalışma ve hızlı açılış. Uygulama dosyaları kurulumda bir kez indirilir ve sonra
  * doğrudan telefondan açılır; ağ beklenmez. Yeni sürüm yayımlarken VERSION'ı artır: yeni çalışan
  * dosyaları arka planda indirir, hazır olunca sayfa bir kez yenilenir. */
-const VERSION = 'dersozetim-3.12.2';
+const VERSION = 'dersozetim-3.12.3';
 const CORE = [
   './', 'manifest.webmanifest', 'css/app.css',
   'js/config.js', 'js/core.js', 'js/motivation.js', 'js/ai.js', 'js/pdf.js', 'js/cloud.js', 'js/app.js', 'js/mascot.js', 'js/school.js', 'js/rooms.js', 'js/spotify.js', 'js/media.js', 'js/admin.js', 'js/notes.js', 'js/install.js', 'js/chat.js', 'js/youtube.js', 'js/plan.js', 'js/lab.js', 'js/sims-fizik.js', 'js/sims-kimya.js', 'js/sims-mat.js', 'js/main.js', 'data/library.json',
